@@ -11,6 +11,9 @@ hardware:
   allow_enable_on_start: false
   allowed_can_interfaces:
     - vcan0
+    - vcan1
+    - vcan2
+    - vcan3
     - can0
 
 safety:

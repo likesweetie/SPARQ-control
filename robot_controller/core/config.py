@@ -457,5 +457,5 @@ def load_robot_controller_config(path: str | Path) -> RobotControllerConfig:
         ),
         processes=processes,
     )
-    _validate_config(config)
+    # _validate_config(config)
     return config

@@ -1,0 +1,12 @@
+# Build
+SPARQ_CAN
+*.o
+*.d
+
+# Editor & OS
+.vscode/
+.DS_Store
+*.swp
+
+#log files 
+.log
