@@ -124,9 +124,53 @@ class SPGMotorState:
 
 
 @dataclass
-class MonitorState:
+class CanChannelState:
+    key: str
+    name: str
     iface: str
     bitrate: int
+    bus_window_s: float
+    stuff_factor: float
+    socket_status: str = "disconnected"
+    socket_error: str | None = None
+    total_rx: int = 0
+    total_tx: int = 0
+    bus_load: BusLoadWindow = field(default_factory=BusLoadWindow)
+
+    def __post_init__(self) -> None:
+        self.bus_load.window_s = float(self.bus_window_s)
+        self.bus_load.bitrate = float(self.bitrate)
+
+    def mark_rx(self, frame: ParsedFrame, now: float) -> None:
+        self.total_rx += 1
+        bits = estimate_classical_can_bits(
+            frame.dlc,
+            is_eff=frame.is_eff,
+            is_rtr=frame.is_rtr,
+            stuff_factor=self.stuff_factor,
+        )
+        self.bus_load.add(now, bits, "rx")
+
+    def mark_tx(self, data: bytes, now: float) -> None:
+        self.total_tx += 1
+        bits = estimate_classical_can_bits(len(data), stuff_factor=self.stuff_factor)
+        self.bus_load.add(now, bits, "tx")
+
+    def snapshot(self, now: float) -> dict:
+        return {
+            "key": self.key,
+            "name": self.name,
+            "iface": self.iface,
+            "socket_status": self.socket_status,
+            "socket_error": self.socket_error,
+            "total_rx": self.total_rx,
+            "total_tx": self.total_tx,
+            **self.bus_load.snapshot(now),
+        }
+
+
+@dataclass
+class MonitorState:
     bus_window_s: float
     heartbeat_window_s: float
     node_timeout_s: float
@@ -145,27 +189,39 @@ class MonitorState:
     imu_quat_scale: float
     imu_gyro_scale: float
     imu_normalize_quat: bool
+    can_channels: tuple[CanChannelState, ...]
     actuator_configs: tuple[dict, ...] = ()
     tx_enabled: bool = False
     allow_actuator_commands: bool = False
-    socket_status: str = "disconnected"
-    socket_error: str | None = None
     mit_poll_can_ids: set[int] = field(default_factory=set)
     mit_poll_hz: float = 50.0
     start_t: float = field(default_factory=monotonic)
-    total_rx: int = 0
-    total_tx: int = 0
     raw_frames: dict[int, RawFrameState] = field(default_factory=dict)
     nodes: dict[str, NodeState] = field(default_factory=dict)
     imu: E2BoxState = field(default_factory=E2BoxState)
     motors: dict[int, SPGMotorState] = field(default_factory=dict)
-    bus_load: BusLoadWindow = field(default_factory=BusLoadWindow)
 
     def __post_init__(self) -> None:
-        self.bus_load.window_s = self.bus_window_s
-        self.bus_load.bitrate = float(self.bitrate)
+        if not self.can_channels:
+            raise ValueError("MonitorState requires at least one CAN display channel")
         self._normalize_actuator_configs()
         self.ensure_known_nodes()
+
+    @property
+    def primary_channel(self) -> CanChannelState:
+        return self.can_channels[0]
+
+    @property
+    def iface(self) -> str:
+        return self.primary_channel.iface
+
+    @property
+    def socket_error(self) -> str | None:
+        return self.primary_channel.socket_error
+
+    @socket_error.setter
+    def socket_error(self, value: str | None) -> None:
+        self.primary_channel.socket_error = value
 
     def _normalize_actuator_configs(self) -> None:
         normalized = []
@@ -215,16 +271,16 @@ class MonitorState:
                 return node
         return self._ensure_node(f"can_{can_id:03X}", f"CAN {can_id:03X}", can_id, "Raw")
 
-    def mark_rx(self, frame: ParsedFrame, now: float | None = None) -> None:
+    def mark_rx(
+        self,
+        frame: ParsedFrame,
+        now: float | None = None,
+        *,
+        channel: CanChannelState | None = None,
+    ) -> None:
         now = monotonic() if now is None else now
-        self.total_rx += 1
-        bits = estimate_classical_can_bits(
-            frame.dlc,
-            is_eff=frame.is_eff,
-            is_rtr=frame.is_rtr,
-            stuff_factor=self.stuff_factor,
-        )
-        self.bus_load.add(now, bits, "rx")
+        if channel is not None:
+            channel.mark_rx(frame, now)
         self._update_raw_frame(frame, now)
         self._node_for_can_id(frame.can_id).mark_rx(now, frame.data)
         self._update_imu(frame, now)
@@ -232,9 +288,7 @@ class MonitorState:
 
     def mark_tx(self, can_id: int, data: bytes, now: float | None = None) -> None:
         now = monotonic() if now is None else now
-        self.total_tx += 1
-        bits = estimate_classical_can_bits(len(data), stuff_factor=self.stuff_factor)
-        self.bus_load.add(now, bits, "tx")
+        self.primary_channel.mark_tx(data, now)
         if can_id == self.imu_request_id:
             self.imu.req_count += 1
         self._update_motor_tx_hint(can_id, data, now)
@@ -364,18 +418,12 @@ class MonitorState:
 
     def snapshot(self) -> dict:
         now = monotonic()
-        bus = self.bus_load.snapshot(now)
+        can_channels = [channel.snapshot(now) for channel in self.can_channels]
         return {
             "time": now,
             "uptime_s": now - self.start_t,
-            "can": {
-                "iface": self.iface,
-                "socket_status": self.socket_status,
-                "socket_error": self.socket_error,
-                "total_rx": self.total_rx,
-                "total_tx": self.total_tx,
-                **bus,
-            },
+            "can": can_channels[0],
+            "can_channels": can_channels,
             "nodes": [node.snapshot(now) for node in sorted(self.nodes.values(), key=lambda item: item.can_id)],
             "imu": self._imu_snapshot(now),
             "motors": [self._motor_snapshot(motor, now) for motor in sorted(self.motors.values(), key=lambda item: item.can_id)],

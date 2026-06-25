@@ -55,7 +55,7 @@ function setText(id, value) {
 function render(state) {
   latestState = state;
   renderTopbar(state);
-  if ($("loadPercent")) renderBus(state);
+  if ($("canChannelGrid")) renderBus(state);
   if ($("safetyMachine")) renderSafetyMachine(state);
   if ($("robotControllerBadge")) renderImu(state);
   if ($("policyCommandPanel")) renderCurrentCommand(state.current_command || {});
@@ -92,20 +92,40 @@ function renderTopbar(state) {
 }
 
 function renderBus(state) {
-  const load = Math.max(0, state.can.load_percent || 0);
-  const width = Math.min(load, 100);
-  setText("loadPercent", `${fmt.fixed(load, 1)}%`);
-  setText("rxRate", `${fmt.fixed(state.can.rx_rate, 1)} fps`);
-  setText("txRate", `${fmt.fixed(state.can.tx_rate, 1)} fps`);
-  setText("kbps", `${fmt.fixed(state.can.estimated_kbps, 1)} kbps`);
-  setText("totals", `${state.can.total_rx} / ${state.can.total_tx}`);
-  $("socketError").textContent = state.can.socket_error || "";
-
-  const bar = $("loadBar");
-  bar.style.width = `${width}%`;
-  bar.className = "progress-fill";
-  if (load >= 75) bar.classList.add("danger");
-  else if (load >= 45) bar.classList.add("warn");
+  const channels = state.can_channels;
+  if (!Array.isArray(channels)) {
+    throw new Error("Dashboard state is missing can_channels");
+  }
+  $("canChannelGrid").innerHTML = channels.map((channel) => {
+    const load = Math.max(0, Number(channel.load_percent) || 0);
+    const width = Math.min(load, 100);
+    const tone = load >= 75 ? "danger" : load >= 45 ? "warn" : "";
+    const status = channel.socket_status || "disconnected";
+    return `
+      <article class="can-channel-card">
+        <header>
+          <div>
+            <strong>${escapeHtml(channel.name || channel.iface)}</strong>
+            <code>${escapeHtml(channel.iface)}</code>
+          </div>
+          <span class="${badgeClass(status)}">${escapeHtml(status)}</span>
+        </header>
+        <div class="can-channel-load">
+          <strong>${fmt.fixed(load, 1)}%</strong>
+          <div class="progress" aria-label="${escapeHtml(channel.name || channel.iface)} load">
+            <div class="progress-fill ${tone}" style="width: ${width}%"></div>
+          </div>
+        </div>
+        <div class="can-channel-metrics">
+          <div><span>RX</span><strong>${fmt.fixed(channel.rx_rate, 1)} fps</strong></div>
+          <div><span>TX</span><strong>${fmt.fixed(channel.tx_rate, 1)} fps</strong></div>
+          <div><span>Estimate</span><strong>${fmt.fixed(channel.estimated_kbps, 1)} kbps</strong></div>
+          <div><span>Total</span><strong>${channel.total_rx || 0} / ${channel.total_tx || 0}</strong></div>
+        </div>
+        ${channel.socket_error ? `<p class="error-line">${escapeHtml(channel.socket_error)}</p>` : ""}
+      </article>
+    `;
+  }).join("");
 }
 
 function safetyTone(stateName) {

@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from .command_api import CommandError, CommandService
 from .robot_state_shm import DashboardRobotStateReader
 from .socketcan_io import CAN_FRAME_SIZE, open_can_socket, parse_can_frame
-from .state import MonitorState
+from .state import CanChannelState, MonitorState
 from robot_controller.core.config import load_robot_controller_config
 from robot_controller.core.platform_config import (
     load_platform_config,
@@ -311,6 +311,49 @@ def require_hz(value: float, field: str, *, lo: float = 0.1, hi: float = 1000.0)
     return value
 
 
+def load_can_display_channels(config: dict[str, Any]) -> tuple[CanChannelState, ...]:
+    can_config = require_section(config, "can")
+    raw = can_config.get("display_channels")
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("Dashboard config key 'can.display_channels' must be a non-empty list")
+
+    channels = []
+    seen_keys: set[str] = set()
+    seen_ifaces: set[str] = set()
+    bus_window_s = float(nested(config, "can", "bus_window_s"))
+    stuff_factor = float(nested(config, "can", "stuff_factor"))
+    for index, item in enumerate(raw):
+        if not isinstance(item, dict):
+            raise ValueError(f"can.display_channels[{index}] must be a mapping")
+        name = str(item.get("name") or "").strip()
+        iface = str(item.get("iface") or "").strip()
+        if not name:
+            raise ValueError(f"can.display_channels[{index}].name must not be empty")
+        if not iface:
+            raise ValueError(f"can.display_channels[{index}].iface must not be empty")
+        if iface in seen_ifaces:
+            raise ValueError(f"Duplicate CAN display interface: {iface}")
+        bitrate = int(item.get("bitrate", 0))
+        if bitrate <= 0:
+            raise ValueError(f"can.display_channels[{index}].bitrate must be > 0")
+        key = str(item.get("key") or iface)
+        if key in seen_keys:
+            raise ValueError(f"Duplicate CAN display channel key: {key}")
+        seen_keys.add(key)
+        seen_ifaces.add(iface)
+        channels.append(
+            CanChannelState(
+                key=key,
+                name=name,
+                iface=iface,
+                bitrate=bitrate,
+                bus_window_s=bus_window_s,
+                stuff_factor=stuff_factor,
+            )
+        )
+    return tuple(channels)
+
+
 def load_actuator_configs(config: dict[str, Any]) -> tuple[dict, ...]:
     raw = config.get("actuators")
     if not isinstance(raw, list):
@@ -344,8 +387,6 @@ def load_actuator_configs(config: dict[str, Any]) -> tuple[dict, ...]:
 
 def make_state(config: dict[str, Any]) -> MonitorState:
     return MonitorState(
-        iface=str(nested(config, "can", "iface")),
-        bitrate=int(nested(config, "can", "bitrate")),
         bus_window_s=float(nested(config, "can", "bus_window_s")),
         heartbeat_window_s=float(nested(config, "can", "heartbeat_window_s")),
         node_timeout_s=float(nested(config, "can", "node_timeout_s")),
@@ -364,6 +405,7 @@ def make_state(config: dict[str, Any]) -> MonitorState:
         imu_quat_scale=float(nested(config, "imu", "quat_scale")),
         imu_gyro_scale=float(nested(config, "imu", "gyro_scale")),
         imu_normalize_quat=bool(nested(config, "imu", "normalize_quat")),
+        can_channels=load_can_display_channels(config),
         actuator_configs=load_actuator_configs(config),
         tx_enabled=bool(nested(config, "safety", "tx_enabled_by_default")),
         allow_actuator_commands=bool(nested(config, "safety", "allow_actuator_commands")),
@@ -505,19 +547,19 @@ def ensure_process_manageable(name: str) -> None:
         )
 
 
-async def socketcan_loop() -> None:
+async def socketcan_loop(channel: CanChannelState) -> None:
     reconnect_delay_s = 1.0
     max_frames_per_tick = 4096
     sock = None
     while True:
         if sock is None:
             try:
-                sock = open_can_socket(state.iface)
-                state.socket_status = "connected"
-                state.socket_error = None
+                sock = open_can_socket(channel.iface)
+                channel.socket_status = "connected"
+                channel.socket_error = None
             except OSError as exc:
-                state.socket_status = "disconnected"
-                state.socket_error = str(exc)
+                channel.socket_status = "disconnected"
+                channel.socket_error = str(exc)
                 await asyncio.sleep(reconnect_delay_s)
                 continue
 
@@ -528,15 +570,15 @@ async def socketcan_loop() -> None:
                     frame_bytes = sock.recv(CAN_FRAME_SIZE)
                 except BlockingIOError:
                     break
-                state.mark_rx(parse_can_frame(frame_bytes))
+                state.mark_rx(parse_can_frame(frame_bytes), channel=channel)
                 frames_read += 1
         except OSError as exc:
-            state.socket_status = "disconnected"
-            state.socket_error = str(exc)
+            channel.socket_status = "disconnected"
+            channel.socket_error = str(exc)
             try:
                 sock.close()
             except OSError as close_exc:
-                logger.warning("CAN socket close failed after RX error: %s", close_exc)
+                logger.warning("CAN socket close failed for %s after RX error: %s", channel.iface, close_exc)
             sock = None
 
         await asyncio.sleep(0 if frames_read else 0.001)
@@ -556,7 +598,7 @@ async def mit_poll_loop() -> None:
                 for can_id in sorted(state.mit_poll_can_ids):
                     commands.motor_mit_hold(can_id)
             except CommandError as exc:
-                state.socket_error = str(exc)
+                state.primary_channel.socket_error = str(exc)
 
             now = asyncio.get_running_loop().time()
             next_send_t += period_s
@@ -570,7 +612,10 @@ async def mit_poll_loop() -> None:
 @app.on_event("startup")
 async def startup() -> None:
     app.state.tasks = [
-        asyncio.create_task(socketcan_loop()),
+        *[
+            asyncio.create_task(socketcan_loop(channel))
+            for channel in state.can_channels
+        ],
         asyncio.create_task(mit_poll_loop()),
     ]
 

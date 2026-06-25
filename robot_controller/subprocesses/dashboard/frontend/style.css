@@ -415,6 +415,91 @@ select {
   background: var(--danger);
 }
 
+.can-channel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.can-channel-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.can-channel-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.can-channel-card header strong,
+.can-channel-card header code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.can-channel-card header strong {
+  color: var(--charcoal);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.can-channel-card header code {
+  margin-top: 2px;
+  color: var(--slate);
+  font-size: 12px;
+}
+
+.can-channel-load {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.can-channel-load > strong {
+  color: var(--charcoal);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.can-channel-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.can-channel-metrics div {
+  min-width: 0;
+}
+
+.can-channel-metrics span {
+  display: block;
+  color: var(--slate);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 650;
+}
+
+.can-channel-metrics strong {
+  display: block;
+  overflow: hidden;
+  color: var(--charcoal);
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .state-machine {
   display: grid;
   grid-template-columns: repeat(10, minmax(0, 1fr));
@@ -1195,6 +1280,7 @@ td code,
   .vector-grid,
   .state-machine,
   .enabled-motors,
+  .can-channel-grid,
   .shm-sections {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1235,6 +1321,7 @@ td code,
   .robot-state-view,
   .state-machine,
   .enabled-motors,
+  .can-channel-grid,
   .control-row,
   .shm-sections,
   .process-meta,

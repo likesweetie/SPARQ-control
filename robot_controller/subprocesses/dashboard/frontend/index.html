@@ -57,18 +57,8 @@
             <p class="eyebrow">Bus</p>
             <h2>CAN Load</h2>
           </div>
-          <strong id="loadPercent" class="metric-large">0.0%</strong>
         </div>
-        <div class="progress" aria-label="CAN bus load">
-          <div id="loadBar" class="progress-fill"></div>
-        </div>
-        <div class="metric-grid">
-          <div><span>RX</span><strong id="rxRate">0.0 fps</strong></div>
-          <div><span>TX</span><strong id="txRate">0.0 fps</strong></div>
-          <div><span>Estimate</span><strong id="kbps">0.0 kbps</strong></div>
-          <div><span>Total</span><strong id="totals">0 / 0</strong></div>
-        </div>
-        <p id="socketError" class="error-line"></p>
+        <div id="canChannelGrid" class="can-channel-grid" aria-label="CAN channel load"></div>
       </section>
 
       <section class="panel command-panel">
