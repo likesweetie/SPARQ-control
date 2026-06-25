@@ -8,5 +8,5 @@ SPARQ_CAN
 .DS_Store
 *.swp
 
-#log files 
-.log
+# log files
+*.log
