@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QHRR SHM Data</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body data-page="shm">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">QHRR Control</p>
+        <h1>SHM Data</h1>
+      </div>
+      <div class="status-strip">
+        <span id="ifaceBadge" class="badge muted">iface</span>
+        <span id="socketBadge" class="badge muted">socket</span>
+        <span id="txBadge" class="badge danger">TX LOCKED</span>
+      </div>
+    </header>
+
+    <nav class="menubar" aria-label="Dashboard views">
+      <a class="menu-link" href="/">Overview</a>
+      <a class="menu-link" href="/processes">Processes</a>
+      <a class="menu-link active" href="/shm">SHM Data</a>
+    </nav>
+
+    <main class="dashboard shm-grid">
+      <section class="panel shm-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Shared Memory</p>
+            <h2>Dashboard State SHM</h2>
+          </div>
+          <span id="shmStatusBadge" class="badge muted">waiting</span>
+        </div>
+        <div class="metric-grid shm-summary-grid">
+          <div><span>Name</span><strong id="shmName">-</strong></div>
+          <div><span>Age</span><strong id="shmAge">never</strong></div>
+          <div><span>Controller</span><strong id="shmControllerState">-</strong></div>
+          <div><span>Schema</span><strong id="shmSchema">-</strong></div>
+        </div>
+        <div class="shm-sections">
+          <article class="shm-section">
+            <h3>CAN</h3>
+            <div id="shmCanGrid" class="key-value-grid"></div>
+          </article>
+          <article class="shm-section">
+            <h3>IMU</h3>
+            <div id="shmImuGrid" class="key-value-grid"></div>
+          </article>
+        </div>
+        <div>
+          <h3 class="section-title">Actuators</h3>
+          <div id="shmActuatorCards" class="shm-actuators"></div>
+        </div>
+        <details class="json-details">
+          <summary>Raw JSON</summary>
+          <pre id="shmJson" class="json-view">{}</pre>
+        </details>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

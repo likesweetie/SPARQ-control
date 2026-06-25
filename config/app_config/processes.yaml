@@ -1,0 +1,54 @@
+processes:
+  - name: can_daemon
+    command:
+      - python3
+      - -m
+      - robot_controller.subprocesses.can_daemon.main
+      - --config
+      - config/app_config/robot_controller.yaml
+      - --replace-existing-socket
+    start_order: 0
+    stop_order: 100
+    new_terminal: true
+    terminal_command: ["gnome-terminal", "--wait", "--"]
+    working_dir: "."
+    env: {}
+
+  - name: dashboard
+    command: ["python3", "-m", "robot_controller.subprocesses.dashboard.main"]
+    start_order: 99
+    stop_order: 99
+    new_terminal: true
+    terminal_command: ["gnome-terminal", "--wait", "--"]
+    working_dir: "."
+    env:
+      DASHBOARD_CONFIG: config/app_config/dashboard.yaml
+
+  - name: aux_reader
+    command:
+      - python3
+      - -m
+      - robot_controller.subprocesses.aux_reader.main
+      - --controller-config
+      - config/app_config/robot_controller.yaml
+      - --joystick-dev
+      - /dev/input/js0
+    start_order: 20
+    stop_order: 80
+    new_terminal: true
+    terminal_command: ["gnome-terminal", "--wait", "--"]
+    working_dir: "."
+    env: {}
+
+  - name: task_controller
+    command: ["python3", "-m", "robot_controller.subprocesses.task_controller.main"]
+    start_order: 30
+    stop_order: 70
+    new_terminal: true
+    terminal_command: ["gnome-terminal", "--wait", "--"]
+    working_dir: "."
+    env:
+      ROBOT_CONTROLLER_CONFIG: config/app_config/robot_controller.yaml
+      QHRR_PROJECT_ROOT: "."
+      TASK_CONTROL_HZ: "50.0"
+      TASK_RATE_LOG_INTERVAL_S: "1.0"

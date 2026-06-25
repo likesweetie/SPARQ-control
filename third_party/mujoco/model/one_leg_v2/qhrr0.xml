@@ -1,0 +1,91 @@
+<mujoco model="qhrr0">
+  <compiler angle="radian" coordinate="local" meshdir="meshes"/>
+  <option
+        timestep="0.001"
+        gravity="0 0 -9.81"
+        integrator="RK4"
+        cone="elliptic"
+        impratio="100"
+        tolerance="1e-10" >
+        <flag warmstart="enable" energy="enable" contact="enable" frictionloss="enable"/>
+    </option>
+  <asset>
+    <mesh name="base_link_mesh" file="base_link.STL"/>
+    <mesh name="IMU_mesh" file="IMU.STL"/>
+    <mesh name="RL_hip_mesh" file="RL_hip.STL"/>
+    <mesh name="RL_thigh_mesh" file="RL_thigh.STL"/>
+    <mesh name="RL_calf_mesh" file="RL_calf.STL"/>
+    <material name="foot_gray" rgba="0.5 0.5 0.5 1"/>
+  </asset>
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0.9" euler="0 0 0">
+      <inertial pos="-0.046389 0.040203 0.13076"
+                mass="2.2134457"
+                fullinertia="0.0379286 0.0384235 0.0183267 -0.0037565 -0.0109204 0.0059884"/>
+        <freejoint/>
+      <geom name="base_link_visual" type="mesh" mesh="base_link_mesh" contype="0" conaffinity="0" group="1"/>
+      <geom name="base_link_collision_1" type="box" pos="-0.067 0.056 0.172" size="0.11 0.13 0.023" group="3"/>
+      <geom name="base_link_collision_2" type="cylinder" pos="0.04 0 0" euler="0 1.57079632679 0" size="0.05 0.0247" group="3"/>
+      <site name="base_link_imu" pos="0 0 0" quat="1 0 0 0" size="0.005"/>
+
+      <body name="IMU" pos="-0.0492 0.06681 0.18441">
+        <inertial pos="-6.93889390390723E-18 -1.38777878078145E-17 -0.001"
+                  mass="0.00069121133470082"
+                  fullinertia="3.55715892103795E-09 7.03575361619189E-08 7.34538875264897E-08 -5.94192264742187E-25 -5.53313020213853E-25 -4.38238528215576E-29"/>
+        <geom name="IMU_visual" type="mesh" mesh="IMU_mesh" contype="0" conaffinity="0" group="1"/>
+        <!-- <geom name="IMU_collision" type="box" pos="0 0 0" size="0.017 0.004 0.001" group="3"/> -->
+        <site name="imu" pos="0 0 0" quat="1 0 0 0" size="0.005"/>
+      </body>
+
+      <body name="RL_hip" pos="0 0 0">
+        <inertial pos="-0.044193 -0.013101 0.00034491"
+                  mass="0.9680516"
+                  fullinertia="0.0017373 0.0012868 0.0018772 -1.92E-05 2.8E-06 -5.3E-06"/>
+        <joint name="RL_hip_roll" type="hinge" axis="1 0 0" range="-1.44 1.44" armature="0.0214816" frictionloss="0.5"/>
+        <geom name="RL_hip_visual" type="mesh" mesh="RL_hip_mesh" contype="0" conaffinity="0" group="1"/>
+        <geom name="RL_hip_collision" type="cylinder" pos="-0.0575 -0.0265 0" euler="1.57079632679 0 0" size="0.05 0.03" group="3"/>
+
+        <body name="RL_thigh" pos="-0.058 0.0082 0">
+          <inertial pos="-0.0085918 0.075599 -0.095236"
+                    mass="1.96881"
+                    fullinertia="0.0376551 0.029444 0.0111253 -0.0009213 0.001832 -0.0100478"/>
+          <joint name="RL_hip_pitch" type="hinge" axis="0 -1 0" range="-2.98 2.98" armature="0.0214816" frictionloss="0.5"/>
+          <geom name="RL_thigh_visual" type="mesh" mesh="RL_thigh_mesh" contype="0" conaffinity="0" group="1"/>
+          <geom name="RL_thigh_collision_1" type="box" pos="-0.018 0.089 -0.189" size="0.036 0.023 0.125"  group="3"/>
+          <geom name="RL_thigh_collision_2" type="cylinder" pos="0 0.062 0" euler="1.57079632679 0 0" size="0.053 0.05"  group="3"/>
+
+          <body name="RL_calf" pos="0 0.089 -0.35">
+            <inertial pos="0.0095241 4.9977E-05 -0.17708"
+                      mass="0.605521"
+                      fullinertia="0.0314859 0.0316893 0.0002809 1E-07 -0.001301 -9E-07"/>
+            <joint name="RL_knee_pitch" type="hinge" axis="0 -1 0" range="0.29 2.79" armature="0.0214816" frictionloss="0.5"/>
+            <geom name="RL_calf_visual" type="mesh" mesh="RL_calf_mesh" contype="0" conaffinity="0" group="1"/>
+            <geom name="RL_calf_collision_1" type="box" pos="0.01 0 -0.1" euler="0 -0.2 0" size="0.022 0.013 0.08" group="3"/>
+            <geom name="RL_calf_collision_2" type="box" pos="0.023 0 -0.26" euler="0 0.14 0" size="0.020 0.013 0.065" group="3"/>
+            <body name="foot_link" pos="0 0 -0.33" euler="0 0 0">
+              <inertial pos="0.0 0.0 -0.035"
+                        mass="0.06"
+                        fullinertia="9.6e-06 9.6e-06 9.6e-06 0 0 0"/>
+              <!-- <geom name="foot_visual" type="sphere" pos="-0.012 0.0 -0.037" size="0.03" material="foot_gray" group="1"/> -->
+              <geom name="foot_collision" type="sphere" pos="-0.012 0.0 -0.037" size="0.03" priority="1" condim="6" friction="0.8 0.03 0.02" group="3" />
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+    <actuator>
+      <motor ctrlrange="-70 70" ctrllimited="true" name="RL_hip_roll" joint="RL_hip_roll"/>
+      <motor ctrlrange="-70 70" ctrllimited="true" name="RL_hip_pitch" joint="RL_hip_pitch"/>
+      <motor ctrlrange="-70 70" ctrllimited="true" name="RL_knee_pitch" joint="RL_knee_pitch"/>
+  </actuator>
+
+  <sensor>
+    <framequat name="base_link_quat" objtype="site" objname="base_link_imu"/>
+    <gyro name="base_link_gyro" site="base_link_imu"/>
+    <framequat name="imu_quat" objtype="site" objname="imu"/>
+    <gyro name="imu_gyro" site="imu"/>
+  </sensor>
+</mujoco>

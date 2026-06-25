@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QHRR Robot State</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body data-page="overview">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">QHRR Control</p>
+        <h1>Robot State</h1>
+      </div>
+      <div class="status-strip">
+        <span id="ifaceBadge" class="badge muted">iface</span>
+        <span id="socketBadge" class="badge muted">socket</span>
+        <span id="txBadge" class="badge danger">TX LOCKED</span>
+      </div>
+    </header>
+
+    <nav class="menubar" aria-label="Dashboard views">
+      <a class="menu-link active" href="/">Overview</a>
+      <a class="menu-link" href="/processes">Processes</a>
+      <a class="menu-link" href="/shm">SHM Data</a>
+    </nav>
+
+    <main class="dashboard overview-grid">
+      <section class="panel machine-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Safety</p>
+            <h2>State Machine</h2>
+          </div>
+          <span id="machineStateBadge" class="badge muted">unknown</span>
+        </div>
+        <div id="safetyMachine" class="state-machine" aria-label="Robot safety state machine"></div>
+        <div class="machine-detail-grid">
+          <div><span>Controller</span><strong id="machineControllerState">-</strong></div>
+          <div><span>Action</span><strong id="machineAction">-</strong></div>
+          <div><span>Fault</span><strong id="machineFault">-</strong></div>
+          <div><span>Age</span><strong id="machineAge">never</strong></div>
+        </div>
+        <p id="machineReason" class="machine-reason">-</p>
+        <div class="operator-actions">
+          <button id="armButton" class="button primary" type="button">Arm</button>
+          <button id="runButton" class="button primary" type="button">Run</button>
+          <button id="dampingButton" class="button secondary" type="button">Damping</button>
+          <button id="faultClearButton" class="button secondary" type="button">Fault Clear</button>
+          <button id="estopButton" class="button danger" type="button">ESTOP</button>
+        </div>
+      </section>
+
+      <section class="panel bus-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Bus</p>
+            <h2>CAN Load</h2>
+          </div>
+          <strong id="loadPercent" class="metric-large">0.0%</strong>
+        </div>
+        <div class="progress" aria-label="CAN bus load">
+          <div id="loadBar" class="progress-fill"></div>
+        </div>
+        <div class="metric-grid">
+          <div><span>RX</span><strong id="rxRate">0.0 fps</strong></div>
+          <div><span>TX</span><strong id="txRate">0.0 fps</strong></div>
+          <div><span>Estimate</span><strong id="kbps">0.0 kbps</strong></div>
+          <div><span>Total</span><strong id="totals">0 / 0</strong></div>
+        </div>
+        <p id="socketError" class="error-line"></p>
+      </section>
+
+      <section class="panel command-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Control</p>
+            <h2>Transmit</h2>
+          </div>
+          <button id="txToggle" class="button danger">Unlock TX</button>
+        </div>
+
+        <form id="rawForm" class="command-form">
+          <label>
+            CAN ID
+            <select id="rawCanId"></select>
+          </label>
+          <label>
+            Payload
+            <input id="rawPayload" value="03" autocomplete="off" />
+          </label>
+          <button class="button dark" type="submit">Send</button>
+        </form>
+
+        <form id="zeroSetForm" class="zero-set-form">
+          <div class="transmit-subhead">
+            <strong>Zero Set</strong>
+            <span id="zeroSetStateBadge" class="badge muted">NORMAL only</span>
+          </div>
+          <label>
+            Actuator
+            <select id="zeroSetActuator"></select>
+          </label>
+          <label>
+            Offset deg
+            <input id="zeroSetOffsetDeg" type="number" step="0.01" value="0.00" />
+          </label>
+          <label>
+            Count
+            <input id="zeroSetOffsetCount" type="text" value="0" readonly />
+          </label>
+          <button id="zeroSetSubmit" class="button secondary" type="submit">Send Zero</button>
+        </form>
+
+        <div id="zeroSetPresetPanel" class="zero-set-presets" hidden>
+          <div class="transmit-subhead">
+            <strong>Zero Set Presets</strong>
+            <span id="zeroSetPresetStateBadge" class="badge muted">NORMAL only</span>
+          </div>
+          <div id="zeroSetPresetButtons" class="preset-button-grid"></div>
+        </div>
+
+        <p id="commandMessage" class="message-line"></p>
+      </section>
+
+      <section id="policyCommandPanel" class="panel policy-command-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Actuator Output</p>
+            <h2>Applied MIT Command</h2>
+          </div>
+          <span id="policyCommandBadge" class="badge muted">waiting</span>
+        </div>
+        <div class="metric-grid compact">
+          <div><span>Source</span><strong id="policyCommandSource">-</strong></div>
+          <div><span>Targets</span><strong id="policyCommandTargets">0</strong></div>
+          <div><span>Age</span><strong id="policyCommandAge">never</strong></div>
+        </div>
+        <div class="table-wrap compact-table">
+          <table>
+            <thead>
+              <tr>
+                <th>CAN</th>
+                <th>P target</th>
+                <th>V target</th>
+                <th>KP</th>
+                <th>KD</th>
+                <th>Tau target</th>
+              </tr>
+            </thead>
+            <tbody id="policyCommandRows"></tbody>
+          </table>
+        </div>
+        <p id="policyCommandError" class="error-line"></p>
+      </section>
+
+      <section class="panel robot-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">E2Box + Actuators</p>
+            <h2>Robot State</h2>
+          </div>
+          <div class="panel-badges">
+            <span id="robotControllerBadge" class="badge muted">controller</span>
+            <span id="imuFreshBadge" class="badge muted">imu</span>
+          </div>
+        </div>
+        <div class="robot-state-view">
+          <div class="attitude-view" aria-label="Robot attitude">
+            <div class="attitude-scene">
+              <div id="robotAttitudeBody" class="robot-body">
+                <span class="robot-face robot-face-front">FRONT</span>
+                <span class="robot-face robot-face-back"></span>
+                <span class="robot-face robot-face-right"></span>
+                <span class="robot-face robot-face-left"></span>
+                <span class="robot-face robot-face-top">UP</span>
+                <span class="robot-face robot-face-bottom"></span>
+              </div>
+              <div class="attitude-floor"></div>
+            </div>
+          </div>
+          <div class="attitude-metrics">
+            <div><span>Roll</span><strong id="rollValue">0.0 deg</strong></div>
+            <div><span>Pitch</span><strong id="pitchValue">0.0 deg</strong></div>
+            <div><span>Yaw</span><strong id="yawValue">0.0 deg</strong></div>
+          </div>
+        </div>
+        <div class="vector-grid">
+          <div><span>quat xyzw</span><code id="quatValue">0.000, 0.000, 0.000, 1.000</code></div>
+          <div><span>gravity b</span><code id="gravityValue">0.000, 0.000, -1.000</code></div>
+          <div><span>gyro rad/s</span><code id="gyroValue">0.000, 0.000, 0.000</code></div>
+        </div>
+        <div class="metric-grid compact">
+          <div><span>Request TX</span><strong id="imuReq">0</strong></div>
+          <div><span>Quaternion RX</span><strong id="imuQuat">0</strong></div>
+          <div><span>Gyro RX</span><strong id="imuGyro">0</strong></div>
+          <div><span>Latest Age</span><strong id="imuAge">never</strong></div>
+        </div>
+        <div id="enabledMotorCards" class="enabled-motors"></div>
+      </section>
+
+      <section class="panel motor-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Actuators</p>
+            <h2>SPG / MIT</h2>
+          </div>
+          <button id="allActuatorToggle" class="button secondary">Enable All</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Actuator</th>
+                <th>CAN</th>
+                <th>State</th>
+                <th>Age</th>
+                <th>Temp</th>
+                <th>Current[A]</th>
+                <th>Speed</th>
+                <th>Pos</th>
+                <th>Raw</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="motorRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel node-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Nodes</p>
+            <h2>Heartbeat</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>CAN</th>
+                <th>Role</th>
+                <th>Hz</th>
+                <th>Last Seen</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="nodeRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel frames-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Traffic</p>
+            <h2>Recent Frames</h2>
+          </div>
+        </div>
+        <div id="recentFrames" class="frames-list"></div>
+      </section>
+    </main>
+
+    <script src="/static/app.js?v=20260529-shm-monitor"></script>
+  </body>
+</html>

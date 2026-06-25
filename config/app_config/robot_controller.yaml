@@ -1,0 +1,72 @@
+platform_config: platform.yaml
+processes_config: processes.yaml
+
+runtime:
+  mode: simulation
+
+hardware:
+  allow_real_can: true
+  require_manual_arm: true
+  require_estop: true
+  allow_enable_on_start: false
+  allowed_can_interfaces:
+    - vcan0
+    - can0
+
+safety:
+  velocity_damping_kd: 0.5
+  damping_timeout_s: 1.0
+  command_loss_action: damping
+  feedback_stale_action: fault
+
+state_machine:
+  enable_duration_s: 0.5
+
+robot_controller:
+  name: qhrr_robot_controller
+  control_hz: 500
+  shutdown_timeout_s: 2.0
+
+shm:
+  cleanup_stale_on_start: true
+  unlink_on_shutdown: true
+
+  aux_command:
+    size_bytes: 4096
+    publish_hz: 100
+
+  operator_command:
+    size_bytes: 4096
+
+  control_state:
+    size_bytes: 16384
+    publish_hz: 500
+
+  dashboard_state:
+    size_bytes: 65536
+    publish_hz: 10
+
+can:
+  command_timeout_s: 0.05
+  bringup_delay_s: 0.1
+
+  daemon:
+    rx_timeout_s: 0.001
+    tx_timeout_s: 0.001
+    join_timeout_s: 1.0
+    max_tx_queue_size: 4096
+    send_block: false
+    send_timeout_s:
+    connect_timeout_s: 5.0
+
+  motors:
+    enter_on_start: false
+    exit_on_shutdown: true
+    set_zero_on_start: false
+
+  imu:
+    enabled: true
+    request_all_on_start: true
+    request_all_each_tick: true
+    startup_request_count: 3
+    startup_request_delay_s: 0.01

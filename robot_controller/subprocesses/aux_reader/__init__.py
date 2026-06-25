@@ -1,0 +1,2 @@
+"""Aux reader subprocess."""
+

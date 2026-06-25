@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="qhrr0 environment">
+    <include file="qhrr0.xml"/>
+    <include file="environment.xml"/>
+</mujoco> 

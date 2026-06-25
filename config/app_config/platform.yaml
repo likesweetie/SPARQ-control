@@ -1,0 +1,67 @@
+robot:
+  name: qhrr
+
+robots:
+  qhrr:
+    model_path: third_party/mujoco/model/one_leg_v2/qhrr0_environment.xml
+    policy_config_dir: config/policy_config/qhrr
+    pd_config_path: config/policy_config/qhrr/qhrr/pd_config.yaml
+    
+can:
+  interface: vcan0
+  bitrate: 1000000
+  daemon_socket: /tmp/qhrr_can_daemon.sock
+
+shm:
+  mit_command: qhrr_mit_command
+  aux_command: qhrr_aux_command
+  operator_command: qhrr_operator_command
+  control_state: qhrr_control_state
+  dashboard_state: qhrr_dashboard_state
+
+imu:
+  type: e2box
+  request_id: 0x221
+  quat_id: 0x2A1
+  gyro_id: 0x321
+  cmd_get_quat: 0x01
+  cmd_get_gyro: 0x02
+  cmd_get_all: 0x03
+  quat_scale: 10000.0
+  gyro_scale: 100.0
+  normalize_quat: true
+
+spg_mit:
+  p_max_rad: 12.5
+  v_max_rad_s: 45.0
+  kp_max: 500.0
+  kd_max: 5.0
+  tau_max_nm: 33.0
+  feedback_position_max_rad: 12.56
+  iq_full_scale_count: 2048.0
+  iq_full_scale_current_a: 33.0
+
+actuators:
+  - name: RL_hip_roll
+    enabled: true
+    can_id: 0x141
+    mujoco_joint: RL_hip_roll
+    mujoco_actuator: RL_hip_roll
+    sign: 1.0
+    offset_rad: 0.0
+
+  - name: RL_hip_pitch
+    enabled: true
+    can_id: 0x142
+    mujoco_joint: RL_hip_pitch
+    mujoco_actuator: RL_hip_pitch
+    sign: 1.0
+    offset_rad: 0.0
+
+  - name: RL_knee_pitch
+    enabled: true
+    can_id: 0x143
+    mujoco_joint: RL_knee_pitch
+    mujoco_actuator: RL_knee_pitch
+    sign: 1.0
+    offset_rad: 0.0

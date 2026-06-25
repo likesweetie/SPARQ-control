@@ -1,0 +1,6 @@
+robot: "qhhr" 
+
+decimation: 1
+kp: 15.0
+kd: 0.5
+num_joint: 3
