@@ -1,11 +1,11 @@
 robot:
-  name: qhrr
+  name: SPARQ
 
 robots:
-  qhrr:
-    model_path: third_party/mujoco/model/one_leg_v2/qhrr0_environment.xml
-    policy_config_dir: config/policy_config/qhrr
-    pd_config_path: config/policy_config/qhrr/qhrr/pd_config.yaml
+  SPARQ:
+    model_path: third_party/mujoco/model/SPARQ/sparq_environment.xml
+    policy_config_dir: config/policy_config/SPARQ
+    pd_config_path: config/policy_config/SPARQ/SPARQ/pd_config.yaml
     
 can:
   interface: vcan0
@@ -42,26 +42,102 @@ spg_mit:
   iq_full_scale_current_a: 33.0
 
 actuators:
-  - name: RL_hip_roll
+  - name: FL_HR
     enabled: true
     can_id: 0x141
-    mujoco_joint: RL_hip_roll
-    mujoco_actuator: RL_hip_roll
+    mujoco_joint: FL_HR
+    mujoco_actuator: FL_HR_motor
     sign: 1.0
     offset_rad: 0.0
 
-  - name: RL_hip_pitch
+  - name: FL_HP
     enabled: true
     can_id: 0x142
-    mujoco_joint: RL_hip_pitch
-    mujoco_actuator: RL_hip_pitch
+    mujoco_joint: FL_HP
+    mujoco_actuator: FL_HP_motor
     sign: 1.0
     offset_rad: 0.0
 
-  - name: RL_knee_pitch
+  - name: FL_KP
     enabled: true
     can_id: 0x143
-    mujoco_joint: RL_knee_pitch
-    mujoco_actuator: RL_knee_pitch
+    mujoco_joint: FL_KP
+    mujoco_actuator: FL_KP_motor
     sign: 1.0
     offset_rad: 0.0
+
+
+  - name: FR_HR
+    enabled: true
+    can_id: 0x151
+    mujoco_joint: FR_HR
+    mujoco_actuator: FR_HR_motor
+    sign: 1.0
+    offset_rad: 0.0
+    
+  - name: FR_HP 
+    enabled: true
+    can_id: 0x152
+    mujoco_joint: FR_HP
+    mujoco_actuator: FR_HP_motor
+    sign: 1.0
+    offset_rad: 0.0
+
+  - name: FR_KP
+    enabled: true
+    can_id: 0x153
+    mujoco_joint: FR_KP
+    mujoco_actuator: FR_KP_motor
+    sign: 1.0
+    offset_rad: 0.0
+
+
+  - name: RL_HR
+    enabled: true
+    can_id: 0x161
+    mujoco_joint: RL_HR
+    mujoco_actuator: RL_HR_motor
+    sign: 1.0
+    offset_rad: 0.0
+
+  - name: RL_HP
+    enabled: true
+    can_id: 0x162
+    mujoco_joint: RL_HP
+    mujoco_actuator: RL_HP_motor
+    sign: 1.0
+    offset_rad: 0.0
+
+  - name: RL_KP
+    enabled: true
+    can_id: 0x163
+    mujoco_joint: RL_KP
+    mujoco_actuator: RL_KP_motor
+    sign: 1.0
+    offset_rad: 0.0
+
+
+  - name: RR_HR
+    enabled: true
+    can_id: 0x171
+    mujoco_joint: RR_HR
+    mujoco_actuator: RR_HR_motor
+    sign: 1.0
+    offset_rad: 0.0
+
+  - name: RR_HP
+    enabled: true
+    can_id: 0x172
+    mujoco_joint: RR_HP
+    mujoco_actuator: RR_HP_motor
+    sign: 1.0
+    offset_rad: 0.0
+    
+  - name: RR_KP
+    enabled: true
+    can_id: 0x173
+    mujoco_joint: RR_KP
+    mujoco_actuator: RR_KP_motor
+    sign: 1.0
+    offset_rad: 0.0
+

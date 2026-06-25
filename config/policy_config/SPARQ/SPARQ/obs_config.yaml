@@ -1,11 +1,11 @@
 observations:
   components:
     [
-    "base_ang_vel_",
-    "projected_gravity",
     "lin_vel_x_commands_",
     "lin_vel_y_commands_",
     "ang_vel_z_commands_",  
+    "base_ang_vel_",
+    "projected_gravity",
     "delta_dof_pos",
     "dof_vel",
     "last_actions",
@@ -14,7 +14,7 @@ observations:
     ]
 
   scales:
-    base_ang_vel_: 0.05
+    base_ang_vel_: 0.25
     projected_gravity: 1.0
     lin_vel_x_commands_: 2.0
     lin_vel_y_commands_: 2.0

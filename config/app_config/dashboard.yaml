@@ -7,23 +7,23 @@ dashboard:
   state_hz: 24
   transmit_ids:
     - label: RL hip roll
-      actuator: RL_hip_roll
+      actuator: RL_HR
       payload: "C100000000000000"
     - label: RL hip pitch
-      actuator: RL_hip_pitch
+      actuator: RL_HP
       payload: "C100000000000000"
     - label: RL knee pitch
-      actuator: RL_knee_pitch
+      actuator: RL_KP
       payload: "C100000000000000"
   zero_set_presets:
     - id: qhrr
       label: Hip Roll 82.5 / Hip Pitch -100 / Knee Pitch 20
       targets:
-        - actuator: RL_hip_roll
+        - actuator: RL_HR
           offset_deg: 82.5
-        - actuator: RL_hip_pitch
+        - actuator: RL_HP
           offset_deg: -100.0
-        - actuator: RL_knee_pitch
+        - actuator: RL_KP
           offset_deg: 20.0
 
 robot_controller_state:

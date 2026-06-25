@@ -1,0 +1,7 @@
+robot: "SPARQ" 
+
+# control_frequency: 500.0
+decimation: 1
+kp: 20.0
+kd: 0.5
+num_joint: 12

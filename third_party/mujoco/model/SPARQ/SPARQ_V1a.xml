@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="sparq">
+
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+
+  <default>
+    <default class="visual">
+      <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+    </default>
+    <default class="collision">
+      <geom contype="1" conaffinity="1" group="3"/>
+      <default class="foot">
+          <geom type="sphere" size="0.03" priority="1" condim="6"
+              friction="0.8 0.02 0.02"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <material name="silver" rgba="0.75 0.75 0.72 1"/>
+    <mesh name="FL_Hip_pitch_link_mesh" file="meshes/FL_Hip_pitch_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="FL_Hip_roll_link_mesh" file="meshes/FL_Hip_roll_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="FL_Knee_link_mesh" file="meshes/FL_Knee_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="FR_Knee_link_mesh" file="meshes/FR_Calf_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="FR_Hip_pitch_link_mesh" file="meshes/FR_Hip_pitch_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="FR_Hip_roll_link_mesh" file="meshes/FR_Hip_roll_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="RL_Hip_pitch_link_mesh" file="meshes/RL_Hip_pitch_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="RL_Hip_roll_link_mesh" file="meshes/RL_Hip_roll_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="RL_Knee_link_mesh" file="meshes/RL_Knee_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="RR_Hip_pitch_link_mesh" file="meshes/RR_Hip_pitch_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="RR_Hip_roll_link_mesh" file="meshes/RR_Hip_roll_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="RR_Knee_link_mesh" file="meshes/RR_Knee_link.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="base_link_mesh" file="meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+  </asset>
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0.7" quat="1 0 0 0">
+      <inertial 
+          pos="-0.0365223217758897 -0.00142802720953009 -0.0353784770833775" 
+          mass="4.20080790024601" 
+          fullinertia="0.028593 0.058857 0.081298 0.000372 0.000256 -5.7e-05"/>
+      <freejoint/>
+
+      <geom type="box" pos="0 0 -0.04" size="0.15 0.13 0.06" class="collision"/>
+      <geom name="base_link_geom" type="mesh" mesh="base_link_mesh" material="silver" class="visual"/>
+      <site name="base_link_imu" pos="0 0 0" quat="1 0 0 0" size="0.005"/>
+      <site name="imu" pos="0 0 0" quat="1 0 0 0" size="0.005"/>
+
+
+      <body name="FL_Hip_roll_link" pos="0.1535 0.105 -0.0345">
+        <joint name="FL_HR" type="hinge" axis="1 0 0" limited="true" range="-0.698132 0.698132"/>
+        <inertial pos="0.047012839260508 -0.0190648895916663 -1.01507808360213e-07" mass="0.433649965152763" fullinertia="0.000222 0.000329 0.000243 1.7e-05 0 0"/>
+        <geom type="cylinder" pos="0.045 0.02 0" size="0.045 0.07" euler="1.57 0 0" class="collision"/>
+        <geom name="FL_Hip_roll_link_geom" type="mesh" mesh="FL_Hip_roll_link_mesh" material="silver" class="visual"/>
+
+        <body name="FL_Hip_pitch_link" pos="0.049 0.0025 0">
+          <joint name="FL_HP" type="hinge" axis="0 1 0" limited="true" range="-1.570796 1.570796"/>
+          <inertial pos="-0.00494463575772652 0.0456363406337958 -0.0345572194599785" mass="0.763721119653306" fullinertia="0.004042 0.003973 0.000679 9.1e-05 -0.000298 0.000633"/>
+          <geom type="box" size="0.02 0.02 0.08" pos="-0.02 0.0675 -0.075" class="collision"/>
+          <geom name="FL_Hip_pitch_link_geom" type="mesh" mesh="FL_Hip_pitch_link_mesh" material="silver" class="visual"/>
+          
+          <body name="FL_Knee_link" pos="0 0.0699 -0.21">
+            <joint name="FL_KP" type="hinge" axis="0 1 0" limited="true" range="-2.5473 -0.5401"/>
+            <inertial pos="0.00603961042441925 -5.01297464650108e-09 -0.0863000003888488" mass="0.197808426199686" fullinertia="0.000872 0.000891 4.5e-05 0 8.3e-05 0"/>
+            <geom type="box" size="0.013 0.013 0.08" pos="0.01 0. -0.1" euler="0 -0.2 0" class="collision"/>
+            <geom name="FL_Knee_link_geom" type="mesh" mesh="FL_Knee_link_mesh" material="silver" class="visual"/>
+
+            <body name="FL_foot" pos="0 -0. -0.21">
+              <inertial pos="0 0 0" mass="0.06" fullinertia="9.6e-06 9.6e-06 9.6e-06 0 0 0"/>
+              <geom name="FL_foot"  pos="-0.0 0 0.01" type="sphere" size="0.015" class="foot"/>
+            </body>
+          </body>
+        </body>
+      </body>
+
+      <body name="FR_Hip_roll_link" pos="0.1535 -0.105 -0.0345">
+        <joint name="FR_HR" type="hinge" axis="1 0 0" limited="true" range="-0.698132 0.698132"/>
+        <inertial pos="0.0470128391305221 0.0190648877964573 1.01099073848698e-07" mass="0.433649967108932" fullinertia="0.000222 0.000329 0.000243 -1.7e-05 0 0"/>
+        <geom type="cylinder" pos="0.045 -0.02 0" size="0.045 0.07" euler="1.57 0 0" class="collision"/>
+        <geom name="FR_Hip_roll_link_geom" type="mesh" mesh="FR_Hip_roll_link_mesh" material="silver" class="visual"/>
+        
+        <body name="FR_Hip_pitch_link" pos="0.049 -0.0025 0">
+          <joint name="FR_HP" type="hinge" axis="0 1 0" limited="true" range="-1.570796 1.570796"/>
+          <inertial pos="-0.00494444797443838 -0.0456362977911512 -0.0345572918791971" mass="0.763718251939605" fullinertia="0.004042 0.003973 0.000679 -9.1e-05 -0.000298 -0.000633"/>
+          <geom type="box" size="0.02 0.02 0.08" pos="-0.02 -0.0675 -0.075" class="collision"/>
+          <geom name="FR_Hip_pitch_link_geom" type="mesh" mesh="FR_Hip_pitch_link_mesh" material="silver" class="visual"/>
+          
+          <body name="FR_Knee_link" pos="0 -0.0699 -0.21">
+            <joint name="FR_KP" type="hinge" axis="0 1 0" limited="true" range="-2.5473 -0.5401"/>
+            <inertial pos="0.00603961042442025 -4.83426190744929e-09 -0.086300032301543" mass="0.197808426199686" fullinertia="0.000872 0.000891 4.5e-05 0 8.3e-05 0"/>
+            <geom type="box" size="0.013 0.013 0.08" pos="0.01 0. -0.1" euler="0 -0.2 0" class="collision"/>
+            <geom name="FR_Knee_link_geom" type="mesh" mesh="FR_Knee_link_mesh" material="silver" class="visual"/>\
+            
+            <body name="FR_foot" pos="0 -0. -0.21">
+              <inertial pos="0 0 0" mass="0.06" fullinertia="9.6e-06 9.6e-06 9.6e-06 0 0 0"/>
+              <geom name="FR_foot"  pos="-0.0 0 0.01" type="sphere" size="0.015" class="foot"/>
+            </body>
+          </body>
+        </body>
+      </body>
+
+      <body name="RL_Hip_roll_link" pos="-0.1705 0.105 -0.0345">
+        <joint name="RL_HR" type="hinge" axis="1 0 0" limited="true" range="-0.698132 0.698132"/>
+        <inertial pos="-0.0470128390651004 -0.0190648895915225 9.63978689649814e-08" mass="0.433649965153592" fullinertia="0.000222 0.000329 0.000243 -1.7e-05 0 0"/>
+        <geom type="cylinder" pos="-0.045 0.02 0" size="0.045 0.07" euler="1.57 0 0" class="collision"/>
+        <geom name="RL_Hip_roll_link_geom" type="mesh" mesh="RL_Hip_roll_link_mesh" material="silver" class="visual"/>
+        
+        <body name="RL_Hip_pitch_link" pos="-0.049 0.0025 0">
+          <joint name="RL_HP" type="hinge" axis="0 1 0" limited="true" range="-1.570796 1.570796"/>
+          <inertial pos="-0.00494463641183884 0.0456363406337904 -0.0345572560780338" mass="0.763721119653281" fullinertia="0.004042 0.003973 0.000679 9.1e-05 -0.000298 0.000633"/>
+          <geom type="box" size="0.02 0.02 0.08" pos="0.02 0.0675 -0.075" class="collision"/>
+          <geom name="RL_Hip_pitch_link_geom" type="mesh" mesh="RL_Hip_pitch_link_mesh" material="silver" class="visual"/>
+          
+          <body name="RL_Knee_link" pos="0 0.0699 -0.21">
+            <joint name="RL_KP" type="hinge" axis="0 1 0" limited="true" range="-2.5473 -0.5401"/>
+            <inertial pos="0.00603960977030621 -5.01300542743444e-09 -0.0863000370068974" mass="0.197808426199686" fullinertia="0.000872 0.000891 4.5e-05 0 8.3e-05 0"/>
+            <geom type="box" size="0.013 0.013 0.08" pos="0.01 0. -0.1" euler="0 -0.2 0" class="collision"/>
+            <geom name="RL_Knee_link_geom" type="mesh" mesh="RL_Knee_link_mesh" material="silver" class="visual"/>
+            
+            <body name="RL_foot" pos="0 -0. -0.21">
+              <inertial pos="0 0 0" mass="0.06" fullinertia="9.6e-06 9.6e-06 9.6e-06 0 0 0"/>
+              <geom name="RL_foot"  pos="-0.0 0 0.01" type="sphere" size="0.015" class="foot"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      
+      <body name="RR_Hip_roll_link" pos="-0.1705 -0.105 -0.0345">
+        <joint name="RR_HR" type="hinge" axis="1 0 0" limited="true" range="-0.698132 0.698132"/>
+        <inertial pos="-0.0470128389355663 0.0190648877977866 -9.67990336150915e-08" mass="0.433649967091763" fullinertia="0.000222 0.000329 0.000243 1.7e-05 0 0"/>
+        <geom type="cylinder" pos="-0.045 -0.02 0" size="0.045 0.07" euler="1.57 0 0" class="collision"/>
+        <geom name="RR_Hip_roll_link_geom" type="mesh" mesh="RR_Hip_roll_link_mesh" material="silver" class="visual"/>
+        
+        <body name="RR_Hip_pitch_link" pos="-0.049 -0.0025 0">
+          <joint name="RR_HP" type="hinge" axis="0 1 0" limited="true" range="-1.570796 1.570796"/>
+          <inertial pos="-0.00494444862855103 -0.0456362977911579 -0.0345572552611431" mass="0.763718251939605" fullinertia="0.004042 0.003973 0.000679 -9.1e-05 -0.000298 -0.000633"/>
+          <geom type="box" size="0.02 0.02 0.08" pos="0.02 -0.0675 -0.075" class="collision"/>
+          <geom name="RR_Hip_pitch_link_geom" type="mesh" mesh="RR_Hip_pitch_link_mesh" material="silver" class="visual"/>
+          
+          <body name="RR_Knee_link" pos="0 -0.0699 -0.21">
+            <joint name="RR_KP" type="hinge" axis="0 1 0" limited="true" range="-2.5473 -0.5401"/>
+            <inertial pos="0.00603960977030707 -4.83429277164937e-09 -0.0862999956834967" mass="0.197808426199686" fullinertia="0.000872 0.000891 4.5e-05 0 8.3e-05 0"/>
+            <geom type="box" size="0.013 0.013 0.08" pos="0.01 0. -0.1" euler="0 -0.2 0" class="collision"/>
+            <geom name="RR_Knee_link_geom" type="mesh" mesh="RR_Knee_link_mesh" material="silver" class="visual"/>
+            
+            <body name="RR_foot" pos="0 -0. -0.21">
+              <inertial pos="0 0 0" mass="0.06" fullinertia="9.6e-06 9.6e-06 9.6e-06 0 0 0"/>
+              <geom name="RR_foot"  pos="-0.0 0 0.01" type="sphere" size="0.015" class="foot"/>
+            </body>
+          </body>
+        </body>
+      </body>
+
+    </body>
+  </worldbody>
+
+  <actuator>
+    <motor name="FL_HR_motor" joint="FL_HR" ctrllimited="true" ctrlrange="-50 50"/>
+    <motor name="FL_HP_motor" joint="FL_HP" ctrllimited="true" ctrlrange="-50 50"/>
+    <motor name="FL_KP_motor" joint="FL_KP" ctrllimited="true" ctrlrange="-50 50"/>
+
+    <motor name="FR_HR_motor" joint="FR_HR" ctrllimited="true" ctrlrange="-50 50"/>
+    <motor name="FR_HP_motor" joint="FR_HP" ctrllimited="true" ctrlrange="-50 50"/>
+    <motor name="FR_KP_motor" joint="FR_KP" ctrllimited="true" ctrlrange="-50 50"/>
+
+    <motor name="RL_HR_motor" joint="RL_HR" ctrllimited="true" ctrlrange="-50 50"/>
+    <motor name="RL_HP_motor" joint="RL_HP" ctrllimited="true" ctrlrange="-50 50"/>
+    <motor name="RL_KP_motor" joint="RL_KP" ctrllimited="true" ctrlrange="-50 50"/>
+
+    <motor name="RR_HR_motor" joint="RR_HR" ctrllimited="true" ctrlrange="-50 50"/>
+    <motor name="RR_HP_motor" joint="RR_HP" ctrllimited="true" ctrlrange="-50 50"/>
+    <motor name="RR_KP_motor" joint="RR_KP" ctrllimited="true" ctrlrange="-50 50"/>
+  </actuator>
+
+  <sensor>
+    <framequat name="base_link_quat" objtype="site" objname="base_link_imu"/>
+    <gyro name="base_link_gyro" site="base_link_imu"/>
+    <framequat name="imu_quat" objtype="site" objname="imu"/>
+    <gyro name="imu_gyro" site="imu"/>
+  </sensor>
+
+</mujoco>

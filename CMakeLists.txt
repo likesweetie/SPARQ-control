@@ -12,7 +12,6 @@ set(ONNX_DIR ${THIRD_PARTY_DIR}/onnxruntime)
 
 find_package(PkgConfig REQUIRED)
 find_package(yaml-cpp REQUIRED)
-# find_package(Eigen3 REQUIRED)
 pkg_search_module(GLFW REQUIRED glfw3)
 
 
