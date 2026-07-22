@@ -71,6 +71,14 @@ public:
             return ctrl.seq.load(std::memory_order_acquire) == s1;
         }
 
+        void read_ctrl_relaxed(Control_param* dst) const noexcept {
+            std::memcpy(
+                dst,
+                ctrl.data,
+                sizeof(Control_param) * Motor_number
+            );
+        }
+
         // Seqlock write: feedback (motion thread side)
         void write_fb(const Feedback_Param* src) {
             fb.seq.fetch_add(1, std::memory_order_relaxed);

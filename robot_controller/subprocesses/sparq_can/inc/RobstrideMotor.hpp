@@ -250,7 +250,7 @@ class RobstrideMotor {
         // Set 100ms timeout
         struct timeval tv;
         tv.tv_sec = 0;
-        tv.tv_usec = 100000; // 100ms
+        tv.tv_usec = 200; //100000; // 100ms
         fd_set rdfs;
         FD_ZERO(&rdfs);
         FD_SET(s, &rdfs);

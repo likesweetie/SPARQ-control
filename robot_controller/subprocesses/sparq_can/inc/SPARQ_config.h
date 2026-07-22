@@ -52,32 +52,15 @@
 #define CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH    7
 #define CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH   11
 
-//LEFT LEG LIMITS - deg 2 rad 
-constexpr double MAX_POS_LEFT_HIP_PITCH   = 130.0    *  M_PI/180;  
-constexpr double MIN_POS_LEFT_HIP_PITCH   = -80.0    *  M_PI/180;
-constexpr double MAX_POS_LEFT_HIP_ROLL    = 8        *  M_PI/180;
-constexpr double MIN_POS_LEFT_HIP_ROLL    = -90      *  M_PI/180;
-constexpr double MAX_POS_LEFT_HIP_YAW     = 90       *  M_PI/180;
-constexpr double MIN_POS_LEFT_HIP_YAW     = -90      *  M_PI/180;
-constexpr double MAX_POS_LEFT_KNEE_PITCH  = 0        *  M_PI/180;
-constexpr double MIN_POS_LEFT_KNEE_PITCH  = -110     *  M_PI/180;
-constexpr double MAX_POS_LEFT_ANKLE_A     = 65.5     *  M_PI/180;
-constexpr double MIN_POS_LEFT_ANKLE_A     = -41      *  M_PI/180;
-constexpr double MAX_POS_LEFT_ANKLE_B     = 41.5     *  M_PI/180;
-constexpr double MIN_POS_LEFT_ANKLE_B     = -65.5    *  M_PI/180;  // 부호 확인 필요 
+//LEG LIMITS - deg 2 rad 
+constexpr double MAX_POS_HIP_ROLL         =   40.0    *  M_PI/180;  
+constexpr double MIN_POS_HIP_ROLL         =  -40.0    *  M_PI/180;
 
-//RIGHT LEG LIMITS - deg 2 rad
-constexpr double MAX_POS_RIGHT_HIP_PITCH   = 80.0     *  M_PI/180;  
-constexpr double MIN_POS_RIGHT_HIP_PITCH   = -130.0   *  M_PI/180;
-constexpr double MAX_POS_RIGHT_HIP_ROLL    = 90       *  M_PI/180;
-constexpr double MIN_POS_RIGHT_HIP_ROLL    = -8       *  M_PI/180;
-constexpr double MAX_POS_RIGHT_HIP_YAW     = 90       *  M_PI/180;
-constexpr double MIN_POS_RIGHT_HIP_YAW     = -90      *  M_PI/180;
-constexpr double MAX_POS_RIGHT_KNEE_PITCH  = 110      *  M_PI/180;
-constexpr double MIN_POS_RIGHT_KNEE_PITCH  = 0        *  M_PI/180; 
-constexpr double MAX_POS_RIGHT_ANKLE_A     = 0        *  M_PI/180;
-constexpr double MIN_POS_RIGHT_ANKLE_A     = 65.5     *  M_PI/180;
-constexpr double MAX_POS_RIGHT_ANKLE_B     = 41.0     *  M_PI/180;
-constexpr double MIN_POS_RIGHT_ANKLE_B     = -65.5    *  M_PI/180;  // 부호 확인 필요 
+constexpr double MAX_POS_HIP_PITCH        =   90.0    *  M_PI/180;  
+constexpr double MIN_POS_HIP_PITCH        =  -90.0    *  M_PI/180;
+
+constexpr double MIN_POS_KNEE_PITCH       = -115.0    *  M_PI/180;
+constexpr double MAX_POS_KNEE_PITCH       =  -15.0    *  M_PI/180;
+
 
 #endif

@@ -18,6 +18,8 @@ from robot_controller.subprocesses.task_controller.policy_runner import (
 )
 from robot_controller.shm.aux_command import AuxCommandShm, mask_to_buttons
 from robot_controller.shm.control_command import ControlCommandShm, ControlTarget
+from robot_controller.shm.real_feedback import RealFeedbackShm
+from robot_controller.shm.real_imu import RealImuShm
 from robot_controller.shm.robot_state import RobotStateShm
 
 
@@ -85,12 +87,41 @@ def main() -> int:
 
     can_ids = [int(can_id) for can_id in controller_config.can.motors.can_ids]
 
+    # qhrr_control_state's actuator/IMU feedback is Path1 (RobotController's
+    # own CAN daemon), whose CAN interface is vcan0 with no real device
+    # attached -- so it never updates and dof_pos/dof_vel/quat/gyro would
+    # silently stay frozen forever (confirmed empirically: obs was frozen
+    # for a full session). Real joint feedback comes from feedback_bridge
+    # (sparq_can's live fb block); real IMU comes from imu_bridge (the
+    # WitMotion serial IMU via imu_serial_cpp, converted to quat/rad-s).
+    real_feedback_shm_name = os.environ.get("REAL_FEEDBACK_SHM_NAME", "qhrr_real_feedback")
+    real_imu_shm_name = os.environ.get("REAL_IMU_SHM_NAME", "qhrr_real_imu")
     control_state_reader = RobotStateShm.open_reader(controller_config.shm.control_state.name)
     aux_reader = AuxCommandShm.open_reader(controller_config.shm.aux_command.name)
     control_command_writer = ControlCommandShm.open_writer(controller_config.shm.mit_command.name)
+    print(f"[task_controller] waiting for real_feedback shm: {real_feedback_shm_name}", flush=True)
+    real_feedback_reader = None
+    while RUNNING and real_feedback_reader is None:
+        try:
+            real_feedback_reader = RealFeedbackShm.open_reader(real_feedback_shm_name)
+        except FileNotFoundError:
+            time.sleep(0.1)
+    if real_feedback_reader is None:
+        return 0
+    print(f"[task_controller] waiting for real_imu shm: {real_imu_shm_name}", flush=True)
+    real_imu_reader = None
+    while RUNNING and real_imu_reader is None:
+        try:
+            real_imu_reader = RealImuShm.open_reader(real_imu_shm_name)
+        except FileNotFoundError:
+            time.sleep(0.1)
+    if real_imu_reader is None:
+        real_feedback_reader.close()
+        return 0
     print(
         f"[task_controller] control={controller_config.shm.control_state.name} "
-        f"aux={controller_config.shm.aux_command.name} control_cmd={controller_config.shm.mit_command.name}",
+        f"aux={controller_config.shm.aux_command.name} control_cmd={controller_config.shm.mit_command.name} "
+        f"real_feedback={real_feedback_shm_name} real_imu={real_imu_shm_name}",
         flush=True,
     )
 
@@ -127,28 +158,23 @@ def main() -> int:
             ang_vel_cmd = [float(value) for value in aux_state.ang_vel_target]
             buttons = mask_to_buttons(int(aux_state.button_mask))
 
-            actuators = {
-                int(item.can_id): item
-                for item in control_state.actuators[: int(control_state.actuator_count)]
+            real_feedback = real_feedback_reader.read_relaxed()
+            real_motors = {
+                int(m.can_id): m
+                for m in real_feedback.motors[: int(real_feedback.num_motors)]
             }
             dof_pos = np.asarray(
-                [float(actuators[can_id].position_rad) for can_id in can_ids],
+                [float(real_motors[can_id].pos) for can_id in can_ids],
                 dtype=np.float32,
             )
             dof_vel = np.asarray(
-                [float(actuators[can_id].velocity_rad_s) for can_id in can_ids],
+                [float(real_motors[can_id].vel) for can_id in can_ids],
                 dtype=np.float32,
             )
-            imu = control_state.imu
-            quat_xyzw = imu.quat_xyzw
-            quat = [
-                float(quat_xyzw[3]),
-                float(quat_xyzw[0]),
-                float(quat_xyzw[1]),
-                float(quat_xyzw[2]),
-            ]
+            real_imu = real_imu_reader.read_relaxed()
+            quat = [float(value) for value in real_imu.quat_wxyz]
             gyro = np.asarray(
-                [float(value) for value in imu.angular_velocity_rad_s],
+                [float(value) for value in real_imu.ang_vel_rad_s],
                 dtype=np.float32,
             )
 
@@ -193,6 +219,8 @@ def main() -> int:
         control_state_reader.close()
         aux_reader.close()
         control_command_writer.close()
+        real_feedback_reader.close()
+        real_imu_reader.close()
     return 0
 
 

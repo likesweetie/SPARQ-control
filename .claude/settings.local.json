@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m py_compile \"/home/dusukk/바탕화면/SPARQ-control/robot_controller/subprocesses/task_controller/main.py\" \"/home/dusukk/바탕화면/SPARQ-control/robot_controller/shm/real_feedback.py\")"
+    ]
+  }
+}

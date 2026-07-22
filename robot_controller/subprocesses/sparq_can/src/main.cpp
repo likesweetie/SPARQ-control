@@ -10,20 +10,32 @@
 #include <pthread.h>
 
 
-const char* CAN_INTERFACE_0 = "vcan0";
-const char* CAN_INTERFACE_1 = "vcan1";
-const char* CAN_INTERFACE_2 = "vcan2";
-const char* CAN_INTERFACE_3 = "vcan3";
+const char* CAN_INTERFACE_0 = "can0";
+const char* CAN_INTERFACE_1 = "can1";
+const char* CAN_INTERFACE_2 = "can2";
+const char* CAN_INTERFACE_3 = "can3";
 bool running = true;
-constexpr long CONTROL_PERIOD = 1'000'000;
-constexpr int MaxID = 51;
+constexpr long CONTROL_PERIOD = 2'000'000;
+constexpr int MaxID = 52;
 
 constexpr int MOTOR_NUM = 12;
 
 Motor_con SparQ;
 
 
-void signal_handler(int signum) { running = false; }
+void signal_handler(int signum) { 
+    running = false; 
+    std::apply([](auto&... vecs) {
+        (..., [](auto& vec) {
+            for (auto& motor : vec) {
+                motor.write_operation_frame(0, 0, 0);
+                motor.control_param.pos = 0;
+                motor.control_param.Kp = 0;
+                motor.control_param.Kd = 0;
+        }
+        }(vecs));
+    }, SparQ);
+}
 
 void* print_thread_func(void*) {
     while (running) {
@@ -121,39 +133,219 @@ void* update_Control_params(void* args){
     Feedback_Param fb_buf[MOTOR_NUM];
     
 
-    while(running){                                    // 이 루프 모듈화는 힘들기도 하고 했을때 오히려 의도가 불명확해보일 수 있음. 따라서 로봇이 바뀐다면 이거 정도는 뭐 합시다. 어려운거 아니자네 
+ while(running){                                    // 이 루프 모듈화는 힘들기도 하고 했을때 오히려 의도가 불명확해보일 수 있음. 따라서 로봇이 바뀐다면 이거 정도는 뭐 합시다. 어려운거 아니자네 
                                                         // 실제 제어시에는 게인이 바뀔 일이 없으므로 게인을 쓰는 부분은 따로 빼거나. 
-        while (!shm_ptr->try_read_ctrl(ctrl_buf));  // torn read면 재시도
-                                                                                                                                    // COMMANDS
+
+
+
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].torque = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].Feedback_param.torque.load(std::memory_order_relaxed);  //TORQUE
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].torque = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].torque = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
+
+        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].Feedback_param.torque.load(std::memory_order_relaxed);
+
+        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].torque = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].torque = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
+
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].torque = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].Feedback_param.torque.load(std::memory_order_relaxed);
+
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
+
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL].Feedback_param.torque.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
+
+
+                                                                                                                // 온도 피드백은 실제 제어할땐 필요없을 것으로 예상됨. 
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].Feedback_param.temp.load(std::memory_order_relaxed);  //TEMP
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
+
+        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].Feedback_param.temp.load(std::memory_order_relaxed);
+
+        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
+
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].Feedback_param.temp.load(std::memory_order_relaxed);
+
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
+
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL].Feedback_param.temp.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
+
+        
+                                                                                                                                    // END FEEDBACKS
+                                                                                                                //피드백은 뭐 각 객체별 clamp도 없어서 반복문을 쓰려면 쓸순 있을듯함 다만 연결에 있어서 불편할듯. 
+
+        // while (!shm_ptr->read_ctrl_relaxed(ctrl_buf));  // torn read면 재시도
+        shm_ptr->read_ctrl_relaxed(ctrl_buf);                                                                                                                                // COMMANDS
                                                                                                                                 // POS 
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // L HIP PITCH 
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // R HIP PITCH   
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // L KNEE PITCH
 
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // R KNEE PITCH
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // L HIP ROLL
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // R HIP ROLL
+// POSITION COMMAND
 
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // L HIP YAW
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // R HIP YAW
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // L ANKLE A 
+        // double clamped_pos;
 
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // R ANKLE A 
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // L ANKLE B 
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH].control_param.pos.store(std::clamp(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].pos, -4* M_PI, 4* M_PI), std::memory_order_relaxed);  // R ANKLE B
+        // clamped_pos = -fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].pos < MIN_POS_HIP_ROLL ? MIN_POS_HIP_ROLL
+        //             : -fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].pos > MAX_POS_HIP_ROLL ? MAX_POS_HIP_ROLL
+        //             : -ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // L HIP PITCH 
+
+        // clamped_pos = -fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].pos < MIN_POS_HIP_PITCH ? MIN_POS_HIP_PITCH
+        //             : -fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].pos > MAX_POS_HIP_PITCH ? MAX_POS_HIP_PITCH
+        //             : -ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // R HIP PITCH   
+
+        // clamped_pos = fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].pos < MIN_POS_KNEE_PITCH ? MIN_POS_KNEE_PITCH
+        //             : fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].pos > MAX_POS_KNEE_PITCH ? MAX_POS_KNEE_PITCH
+        //             : -ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // L KNEE PITCH
+
+        // clamped_pos = fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].pos < MIN_POS_HIP_ROLL ? MIN_POS_HIP_ROLL
+        //             : fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].pos > MAX_POS_HIP_ROLL ? MAX_POS_HIP_ROLL
+        //             : ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // R KNEE PITCH
+
+        // clamped_pos = -fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].pos < MIN_POS_HIP_PITCH ? MIN_POS_HIP_PITCH
+        //             : -fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].pos > MAX_POS_HIP_PITCH ? MAX_POS_HIP_PITCH
+        //             : -ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // L HIP ROLL
+
+        // clamped_pos = fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].pos < MIN_POS_KNEE_PITCH ? MIN_POS_KNEE_PITCH
+        //             : fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].pos > MAX_POS_KNEE_PITCH ? MAX_POS_KNEE_PITCH
+        //             : -ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // R HIP ROLL
+
+        // clamped_pos = -fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].pos < MIN_POS_HIP_ROLL ? MIN_POS_HIP_ROLL
+        //             : -fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].pos > MAX_POS_HIP_ROLL ? MAX_POS_HIP_ROLL
+        //             : -ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // L HIP YAW
+
+        // clamped_pos = fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].pos < MIN_POS_HIP_PITCH ? MIN_POS_HIP_PITCH
+        //             : fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].pos > MAX_POS_HIP_PITCH ? MAX_POS_HIP_PITCH
+        //             : ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // R HIP YAW
+
+        // clamped_pos = fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].pos < MIN_POS_KNEE_PITCH ? MIN_POS_KNEE_PITCH
+        //             : fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].pos > MAX_POS_KNEE_PITCH ? MAX_POS_KNEE_PITCH
+        //             : ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // L ANKLE A
+
+        // clamped_pos = fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].pos < MIN_POS_HIP_ROLL ? MIN_POS_HIP_ROLL
+        //             : fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].pos > MAX_POS_HIP_ROLL ? MAX_POS_HIP_ROLL
+        //             : ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // R ANKLE A 
+
+        // clamped_pos = fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].pos < MIN_POS_HIP_PITCH ? MIN_POS_HIP_PITCH
+        //             : fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].pos > MAX_POS_HIP_PITCH ? MAX_POS_HIP_PITCH
+        //             : ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // L ANKLE B 
+
+        // clamped_pos = fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].pos < MIN_POS_KNEE_PITCH ? MIN_POS_KNEE_PITCH
+        //             : fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].pos > MAX_POS_KNEE_PITCH ? MAX_POS_KNEE_PITCH
+        //             : ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].pos;
+        // std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH].control_param.pos.store(clamped_pos, std::memory_order_relaxed);  // R ANKLE B
+
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL]
+            .control_param.pos.store(
+                -ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH]
+            .control_param.pos.store(
+                -ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH]
+            .control_param.pos.store(
+                -ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL]
+            .control_param.pos.store(
+                ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH]
+            .control_param.pos.store(
+                -ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH]
+            .control_param.pos.store(
+                -ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL]
+            .control_param.pos.store(
+                -ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH]
+            .control_param.pos.store(
+                ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH]
+            .control_param.pos.store(
+                ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL]
+            .control_param.pos.store(
+                ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH]
+            .control_param.pos.store(
+                ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].pos,
+                std::memory_order_relaxed
+            );
+
+        std::get<RS02_Vec>(SparQ)
+            [CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH]
+            .control_param.pos.store(
+                ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].pos,
+                std::memory_order_relaxed
+            );
 
                                                                                                             // Kp
+                                                                                                            
         std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].Kp, std::memory_order_relaxed);       //
         std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].Kp, std::memory_order_relaxed);  
         std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].Kp, std::memory_order_relaxed); 
 
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].Kp, std::memory_order_relaxed);  
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].Kp, std::memory_order_relaxed);       
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].Kp, std::memory_order_relaxed);  
+        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].Kp, std::memory_order_relaxed);
+        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].Kp, std::memory_order_relaxed);
+        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].Kp, std::memory_order_relaxed);
 
         std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].Kp, std::memory_order_relaxed);  
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].Kp, std::memory_order_relaxed);  
-        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].Kp, std::memory_order_relaxed);       
+        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].Kp, std::memory_order_relaxed);
+        std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].Kp, std::memory_order_relaxed);
 
         std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].Kp, std::memory_order_relaxed);  
         std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH].control_param.Kp.store(ctrl_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].Kp, std::memory_order_relaxed);  
@@ -179,77 +371,49 @@ void* update_Control_params(void* args){
 
         
                                                                                                                                         // FEEDBACKS
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].pos_offset;
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].pos_offset;
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].pos_offset;
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].pos = -(std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].pos_offset);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].pos = -(std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].pos_offset);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].pos = -(std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].pos_offset);
+        
         fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].pos_offset;
 
-        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].pos_offset;
-        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].pos_offset;
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].pos_offset;
+        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].pos = -(std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].pos_offset);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].pos = -(std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].pos_offset);
+        
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].pos = -(std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].pos_offset);
+        
         fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].pos_offset;
 
         fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].pos_offset;
         fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL].pos_offset;
+        
         fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH].pos_offset;
         fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].pos = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH].Feedback_param.pos.load(std::memory_order_relaxed)+std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH].pos_offset;
 
 
 
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].Feedback_param.vel.load(std::memory_order_relaxed);      //VEL
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].vel = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].Feedback_param.vel.load(std::memory_order_relaxed);      //VEL
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].vel = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].vel = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
+        
         fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].Feedback_param.vel.load(std::memory_order_relaxed);
 
-        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].Feedback_param.vel.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].vel = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
+        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].vel = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
+        
+        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].vel = -std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].Feedback_param.vel.load(std::memory_order_relaxed);
+
         fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
 
         fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
         fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL].Feedback_param.vel.load(std::memory_order_relaxed);
+
         fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
         fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].vel = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH].Feedback_param.vel.load(std::memory_order_relaxed);
 
 
-
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].Feedback_param.torque.load(std::memory_order_relaxed);  //TORQUE
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].Feedback_param.torque.load(std::memory_order_relaxed);
-
-        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].Feedback_param.torque.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
-
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL].Feedback_param.torque.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].torque = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH].Feedback_param.torque.load(std::memory_order_relaxed);
-
-
-                                                                                                                // 온도 피드백은 실제 제어할땐 필요없을 것으로 예상됨. 
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_ROLL].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_ROLL].Feedback_param.temp.load(std::memory_order_relaxed);  //TEMP
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_HIP_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_HIP_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_LEFT_FRONT_KNEE_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_FRONT_KNEE_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_ROLL].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_ROLL].Feedback_param.temp.load(std::memory_order_relaxed);
-
-        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_HIP_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_HIP_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_LEFT_REAR_KNEE_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_LEFT_REAR_KNEE_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_ROLL].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_ROLL].Feedback_param.temp.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_HIP_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_HIP_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
-
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_FRONT_KNEE_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_ROLL].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_ROLL].Feedback_param.temp.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_HIP_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_HIP_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
-        fb_buf[SHM_MOTOR_INDEX_RIGHT_REAR_KNEE_PITCH].temp = std::get<RS02_Vec>(SparQ)[CONTROL_VECTOR_INDEX_RIGHT_REAR_KNEE_PITCH].Feedback_param.temp.load(std::memory_order_relaxed);
-
         shm_ptr->write_fb(fb_buf);
-                                                                                                                                    // END FEEDBACKS
-                                                                                                                //피드백은 뭐 각 객체별 clamp도 없어서 반복문을 쓰려면 쓸순 있을듯함 다만 연결에 있어서 불편할듯. 
-
-       usleep(500);  //이제 여기서도 RTC 쓰거나 해야하지 싶네 
+       usleep(100);  //이제 여기서도 RTC 쓰거나 해야하지 싶네 
     }
     return nullptr;
 }
@@ -290,7 +454,7 @@ int main() {
 
     std::apply([](auto&... vecs) {
         (..., [](auto& vec) {
-            for (auto& motor : vec) motor.init_motor_MIT(3, 1);
+            for (auto& motor : vec) motor.init_motor_MIT(100, 100);
         }(vecs));
     }, SparQ);
 

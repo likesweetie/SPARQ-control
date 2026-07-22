@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -166,6 +168,9 @@ class OnnxPolicy:
         self.output_name = self.session.get_outputs()[0].name
         print(f"[task_controller] loaded policy {self.name}: {policy_dir / 'policy.onnx'}", flush=True)
         self.cnt = 0
+        self._debug_obs = os.environ.get("POLICY_DEBUG_OBS", "0") == "1"
+        self._debug_obs_interval_s = float(os.environ.get("POLICY_DEBUG_OBS_INTERVAL_S", "0.03"))
+        self._last_debug_obs_t = 0.0
 
     def set_state(self, dof_pos: np.ndarray, dof_vel: np.ndarray, quat_wxyz: list[float], ang_vel: np.ndarray) -> None:
         self.dof_pos[:] = np.array([dof_pos[index] for index in self.input_indices], dtype=np.float32)
@@ -184,7 +189,10 @@ class OnnxPolicy:
     def compute_action(self) -> np.ndarray:
         self.cnt += 1
         # print(f"[task_controller] Compute action call {self.cnt}")
-        output = self.session.run([self.output_name], {self.input_name: self._observation()})[0]
+        obs = self._observation()
+        if self._debug_obs:
+            self._print_obs(obs)
+        output = self.session.run([self.output_name], {self.input_name: obs})[0]
         raw = np.asarray(output, dtype=np.float32).reshape(-1)[: self.num_joint]
         self.actions[:] = np.clip(raw, -self.action_clip, self.action_clip)
         scaled_original = self.actions * self.action_scale
@@ -234,6 +242,76 @@ class OnnxPolicy:
             else:
                 raise RuntimeError(f"unsupported observation component: {component}")
         return np.asarray(values, dtype=np.float32)[None, :]
+
+    def _obs_component_dim(self, component: str) -> int:
+        if component in {
+            "dof_pos",
+            "delta_dof_pos",
+            "dof_vel",
+            "actions",
+            "last_actions",
+            "last_last_actions",
+            "last_last_last_actions",
+        }:
+            return self.num_joint
+        if component in {"base_ang_vel_", "projected_gravity"}:
+            return 3
+        return 1
+
+
+    def _print_obs(self, obs: np.ndarray) -> None:
+        now = time.monotonic()
+        if now - self._last_debug_obs_t < self._debug_obs_interval_s:
+            return
+
+        self._last_debug_obs_t = now
+
+        flat = np.asarray(obs).reshape(-1)
+        offset = 0
+        rows: list[tuple[str, int, int, np.ndarray]] = []
+
+        for component in self.obs_components:
+            dim = self._obs_component_dim(component)
+            start = offset
+            end = offset + dim
+            values = flat[start:end]
+            offset = end
+            rows.append((component, start, end, values))
+
+        name_width = max((len(name) for name, *_ in rows), default=0)
+        range_width = max((len(f"[{start:03d}:{end:03d}]") for _, start, end, _ in rows), default=0)
+
+        lines = [
+            "",
+            f"[task_controller] Observation",
+            f"  controller : {self.name}",
+            f"  dimension  : {flat.size}",
+            f"  timestamp  : {now:.3f}",
+            "  " + "─" * 76,
+        ]
+
+        for component, start, end, values in rows:
+            range_text = f"[{start:03d}:{end:03d}]"
+
+            value_text = np.array2string(
+                values,
+                precision=3,
+                suppress_small=True,
+                separator=", ",
+                max_line_width=120,
+                floatmode="fixed",
+            )
+
+            lines.append(
+                f"  {component:<{name_width}}  "
+                f"{range_text:<{range_width}}  "
+                f"{value_text}"
+            )
+
+        lines.append("  " + "─" * 76)
+
+        print("\n".join(lines), flush=True)
+
 
     def _obs_components(self) -> list[str]:
         observations = self.obs_config.get("observations", {})

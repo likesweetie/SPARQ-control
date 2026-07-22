@@ -1,0 +1,12 @@
+# Build
+imu_bridge
+*.o
+*.d
+
+# Editor & OS
+.vscode/
+.DS_Store
+*.swp
+
+# log files
+*.log

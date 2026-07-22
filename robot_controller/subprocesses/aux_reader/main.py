@@ -85,6 +85,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--controller-config", type=Path, default=Path(os.environ.get("ROBOT_CONTROLLER_CONFIG", "config/app_config/robot_controller.yaml")))
     parser.add_argument("--joystick-dev", default=os.environ.get("JOYSTICK_DEV", "/dev/input/js0"))
     parser.add_argument("--poll-sleep-s", type=float, default=0.001)
+    parser.add_argument(
+        "--allow-missing-joystick",
+        action="store_true",
+        default=os.environ.get("AUX_READER_ALLOW_MISSING_JOYSTICK", "0") == "1",
+        help=(
+            "If the joystick device is missing, publish neutral (zero) aux commands "
+            "and keep running instead of exiting fatally. Explicit opt-in only; "
+            "default behavior remains fatal on a missing device."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -97,23 +107,59 @@ def main() -> int:
     writer = AuxCommandShm.open_writer(config.shm.aux_command.name)
     print(f"[aux_reader] publishing aux command shm: {config.shm.aux_command.name}", flush=True)
 
-    fd = os.open(args.joystick_dev, os.O_RDONLY | os.O_NONBLOCK)
-    print(f"[aux_reader] joystick device: {args.joystick_dev}", flush=True)
+    try:
+        fd = os.open(args.joystick_dev, os.O_RDONLY | os.O_NONBLOCK)
+        print(f"[aux_reader] joystick device: {args.joystick_dev}", flush=True)
+    except FileNotFoundError:
+        if not args.allow_missing_joystick:
+            raise
+        print(
+            f"[aux_reader] WARNING: joystick device {args.joystick_dev} not found; "
+            "--allow-missing-joystick fallback active, publishing neutral aux command "
+            "and idling (no joystick input will be read)",
+            flush=True,
+        )
+        fd = None
 
     axes = [0.0] * 32
     buttons = [False] * 32
+    # HEARTBEAT_INTERVAL_S: publish() only fires on a new joystick event
+    # (axis moved / button changed), so holding a button steady with no
+    # further input would otherwise stop timestamp_ns from advancing almost
+    # immediately -- any consumer gating on qhrr_aux_command freshness (e.g.
+    # policy_bridge's deadman check) would then see it go stale within
+    # ~100ms and disarm even while the button is still held. Republish on a
+    # fixed cadence regardless of new events so the timestamp is a proper
+    # liveness heartbeat, matching task_controller's periodic publish model.
+    HEARTBEAT_INTERVAL_S = 0.02
+    last_publish_t = time.monotonic()
     try:
         _publish(writer, axes, buttons)
         print("[aux_reader] published neutral aux command", flush=True)
 
         while RUNNING:
+            if fd is None:
+                now = time.monotonic()
+                if now - last_publish_t >= HEARTBEAT_INTERVAL_S:
+                    _publish(writer, axes, buttons)
+                    last_publish_t = now
+                time.sleep(args.poll_sleep_s)
+                continue
             try:
                 packet = os.read(fd, JS_EVENT_STRUCT.size)
             except BlockingIOError:
+                now = time.monotonic()
+                if now - last_publish_t >= HEARTBEAT_INTERVAL_S:
+                    _publish(writer, axes, buttons)
+                    last_publish_t = now
                 time.sleep(args.poll_sleep_s)
                 continue
             except OSError as exc:
                 if exc.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+                    now = time.monotonic()
+                    if now - last_publish_t >= HEARTBEAT_INTERVAL_S:
+                        _publish(writer, axes, buttons)
+                        last_publish_t = now
                     time.sleep(args.poll_sleep_s)
                     continue
                 raise
@@ -126,11 +172,14 @@ def main() -> int:
             if event_type == JS_EVENT_AXIS and number < len(axes):
                 axes[number] = _axis_value(value)
                 _publish(writer, axes, buttons)
+                last_publish_t = time.monotonic()
             elif event_type == JS_EVENT_BUTTON and number < len(buttons):
                 buttons[number] = value != 0
                 _publish(writer, axes, buttons)
+                last_publish_t = time.monotonic()
     finally:
-        os.close(fd)
+        if fd is not None:
+            os.close(fd)
         writer.close()
     return 0
 

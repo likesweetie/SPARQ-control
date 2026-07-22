@@ -1,18 +1,18 @@
 processes:
-  # - name: can_daemon
-  #   command:
-  #     - python3
-  #     - -m
-  #     - robot_controller.subprocesses.can_daemon.main
-  #     - --config
-  #     - config/app_config/robot_controller.yaml
-  #     - --replace-existing-socket
-  #   start_order: 0
-  #   stop_order: 100
-  #   new_terminal: true
-  #   terminal_command: ["gnome-terminal", "--wait", "--"]
-  #   working_dir: "."
-  #   env: {}
+  - name: can_daemon
+    command:
+      - python3
+      - -m
+      - robot_controller.subprocesses.can_daemon.main
+      - --config
+      - config/app_config/robot_controller.yaml
+      - --replace-existing-socket
+    start_order: 0
+    stop_order: 100
+    new_terminal: true
+    terminal_command: ["gnome-terminal", "--wait", "--"]
+    working_dir: "."
+    env: {}
 
   - name: sparq_can
     command: ["python3", "-m", "robot_controller.subprocesses.sparq_can.main"]
@@ -23,6 +23,45 @@ processes:
     working_dir: "."
     env: {}
 
+
+  - name: imu_serial
+    # WitMotion USB-serial IMU reader (imu_serial_cpp/, not part of
+    # robot_controller/subprocesses/ -- it's the user's separate tool).
+    # Auto-detects /dev/ttyUSB*|/dev/ttyACM* if no port is given; publishes
+    # raw acc/gyro/angle into POSIX shm /witmotion_imu.
+    command: ["imu_serial_cpp/build/imu_serial"]
+    start_order: 5
+    stop_order: 95
+    new_terminal: true
+    terminal_command: ["gnome-terminal", "--wait", "--"]
+    working_dir: "."
+    env: {}
+
+  # - name: imu_bridge
+  #   # Converts imu_serial's /witmotion_imu (Euler angles roll/pitch/yaw,
+  #   # gyro deg/s) into quat_wxyz + ang_vel_rad_s in /qhrr_real_imu, which
+  #   # task_controller reads instead of qhrr_control_state's frozen IMU.
+  #   command: ["python3", "-m", "robot_controller.subprocesses.imu_bridge.main"]
+  #   start_order: 16
+  #   stop_order: 84
+  #   new_terminal: true
+  #   terminal_command: ["gnome-terminal", "--wait", "--"]
+  #   working_dir: "."
+  #   env: {}
+
+  - name: feedback_bridge
+    # Publishes sparq_can's live Path2 (Robstride) motor feedback
+    # (Control_Shm::fb) into /qhrr_real_feedback, keyed by CAN ID.
+    # task_controller reads dof_pos/dof_vel from this shm instead of
+    # qhrr_control_state, whose Path1 CAN daemon has no real device
+    # attached (vcan0) and would otherwise leave obs frozen at zero forever.
+    command: ["python3", "-m", "robot_controller.subprocesses.feedback_bridge.main"]
+    start_order: 15
+    stop_order: 85
+    new_terminal: true
+    terminal_command: ["gnome-terminal", "--wait", "--"]
+    working_dir: "."
+    env: {}
 
   - name: aux_reader
     command:
@@ -38,7 +77,8 @@ processes:
     new_terminal: true
     terminal_command: ["gnome-terminal", "--wait", "--"]
     working_dir: "."
-    env: {}
+    env:
+      AUX_READER_ALLOW_MISSING_JOYSTICK: "1"
 
   - name: task_controller
     command: ["python3", "-m", "robot_controller.subprocesses.task_controller.main"]
@@ -52,7 +92,27 @@ processes:
       QHRR_PROJECT_ROOT: "."
       TASK_CONTROL_HZ: "50.0"
       TASK_RATE_LOG_INTERVAL_S: "1.0"
+      POLICY_DEBUG_OBS: "1"
+      POLICY_DEBUG_OBS_INTERVAL_S: "1.0"
 
+
+  - name: policy_bridge
+    # Forwards task_controller's policy output (qhrr_mit_command) into the
+    # real Robstride motor shm (sparq_can, key=13563267). Without
+    # --enable-motor-output in this command list, the bridge always writes
+    # Kp=Kd=0 -- adding that flag is what actually arms real motor output,
+    # and requires an explicit, reviewable diff to this file (see
+    # docs/plans/zazzy-wiggling-orbit.md and policy_bridge/src/main.cpp for
+    # the full arming/staleness design). Even when this flag is present, the
+    # bridge additionally requires the aux joystick's RB button held live
+    # every cycle before any nonzero gain is written.
+    command: ["python3", "-m", "robot_controller.subprocesses.policy_bridge.main", "--enable-motor-output"]
+    start_order: 32
+    stop_order: 68
+    new_terminal: true
+    terminal_command: ["gnome-terminal", "--wait", "--"]
+    working_dir: "."
+    env: {}
 
   - name: dashboard
     command: ["python3", "-m", "robot_controller.subprocesses.dashboard.main"]

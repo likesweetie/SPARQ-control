@@ -4,17 +4,79 @@ GitHub: [likesweetie/QHRR0-control](https://github.com/likesweetie/QHRR0-control
 
 QHRR 계열 로봇을 위한 Python 기반 제어기 프로젝트입니다. CAN 기반 actuator/IMU bringup, ONNX policy inference, MIT command 송신, child process supervision, Robot State dashboard를 하나의 런타임으로 묶어 관리합니다.
 
-현재 기본 설정은 `runtime.mode: simulation`, CAN interface `vcan0` 대상입니다. 실제 로봇에서 실행하기 전에는 반드시 `docs/SAFETY.md`, `docs/CAN_INTERFACE.md`, `docs/CONFIG_SCHEMA.md`를 먼저 확인하세요.
 
-## Simulation Quick Start
+## Environment Setup (Radxa Q6)
+
+대상 보드는 Radxa Q6입니다. Q6는 PC의 `x86_64` 환경과 CPU 아키텍처가 다르므로, PC에서 만든 conda environment나 빌드된 실행 파일/공유 라이브러리를 그대로 복사해서 쓰지 않습니다. Q6 보드 위에서 `aarch64`용 conda와 Python wheel을 설치하고, C++ subprocess도 보드에서 다시 빌드합니다.
+
+### 1. System packages
 
 ```bash
-sudo modprobe vcan
-sudo ip link add dev vcan0 type vcan
-sudo ip link set up vcan0
-
-python3 -m robot_controller.main --config config/app_config/robot_controller.yaml
+sudo apt update
+sudo apt install -y build-essential make g++ cmake git can-utils
 ```
+
+보드 아키텍처를 먼저 확인합니다.
+
+```bash
+uname -m
+```
+
+Q6에서는 보통 아래처럼 나와야 합니다.
+
+```text
+aarch64
+```
+
+### 2. Conda setup
+
+Q6에는 ARM64/aarch64용 Miniforge 또는 Miniconda를 설치합니다. 이미 conda가 설치되어 있다면 이 단계는 건너뜁니다. 설치 파일 이름은 배포판에 따라 달라질 수 있지만, 반드시 `Linux-aarch64` 빌드를 사용합니다.
+
+```bash
+# 예시: Miniforge3 Linux aarch64 installer를 받은 뒤 실행
+bash Miniforge3-Linux-aarch64.sh
+
+# 새 터미널을 열거나 shell 초기화 후
+conda create -n sparq-control python=3.11 -y
+conda activate sparq-control
+python -m pip install --upgrade pip
+```
+
+PC에서 만든 `environment.yml` 또는 `conda env export` 결과를 Q6에 그대로 적용하지 않습니다. `linux-64` 패키지가 섞일 수 있기 때문에 Q6에서는 새 environment를 만든 뒤 requirements를 다시 설치합니다.
+
+### 3. Python requirements
+
+루트 requirements를 설치합니다. 여기에는 controller, policy runner, dashboard 실행에 필요한 Python 패키지가 들어 있습니다.
+
+```bash
+conda activate sparq-control
+python -m pip install -r requirements.txt
+```
+
+설치 후 ONNX Runtime이 Q6에서 로드되는지 확인합니다.
+
+```bash
+python - <<'PY'
+import platform
+import onnxruntime as ort
+
+print("machine:", platform.machine())
+print("onnxruntime:", ort.__version__)
+print("providers:", ort.get_available_providers())
+PY
+```
+
+### 4. Native binaries
+
+현재 repository에 포함된 일부 `third_party` 라이브러리와 기존 빌드 산출물은 `x86_64`일 수 있습니다. Q6 hardware bringup에서는 MuJoCo simulation용 `third_party/mujoco`가 필요하지 않습니다. `sparq_can` 같은 C++ subprocess는 Q6에서 다시 빌드합니다.
+
+```bash
+make -C robot_controller/subprocesses/sparq_can clean
+make -C robot_controller/subprocesses/sparq_can
+file robot_controller/subprocesses/sparq_can/SPARQ_CAN
+```
+
+`file` 출력에 `aarch64` 또는 `ARM aarch64`가 보여야 Q6에서 실행 가능한 바이너리입니다.
 
 Dashboard는 기본 설정 기준으로 아래 주소에서 실행됩니다.
 
@@ -22,11 +84,6 @@ Dashboard는 기본 설정 기준으로 아래 주소에서 실행됩니다.
 http://127.0.0.1:8000
 ```
 
-MuJoCo simulation은 별도 터미널에서 실행합니다.
-
-```bash
-python3 run_mujoco_simulation.py
-```
 
 ## Hardware Mode
 
@@ -35,9 +92,6 @@ Hardware mode는 YAML 변경만으로 실행되지 않습니다. `config/app_con
 ```bash
 python3 -m robot_controller.main \
   --config config/app_config/robot_controller.yaml \
-  --hardware \
-  --i-understand-this-can-enable-motors \
-  --estop-ok
 ```
 
 Hardware mode startup validation:
@@ -104,12 +158,45 @@ Hardware mode는 `ControllerMode.DISABLED`에서 시작하며, startup 중 motor
 - HAL은 `qhrr0_hw`를 import하지 않습니다. QHRR0 제품 종속 구현은 최상단 `qhrr0_hw/`에 둡니다.
 - silent fallback은 금지합니다. fallback policy는 `FALLBACK_POLICY.md`를 따릅니다.
 
-## Useful Commands
+## How to start
+
+- imu_serial_cpp는 clean 후 직접 cmake로 빌드
+- subprocess의 feedback_bridge, policy_bridge, sparq_can은 clean 후 make로 빌드 해야 할 수 있습니다.
+- imu_birdge는 실행하지 않습니다.
+- 죽은 터미널의 에러메시지는 log의 최신폴더 바로 이전거에서 확인
+
 
 ```bash
-python3 -m robot_controller.main --config config/app_config/robot_controller.yaml
-python3 -m robot_controller.subprocesses.can_daemon.main --config config/app_config/robot_controller.yaml --replace-existing-socket
-python3 -m robot_controller.subprocesses.task_controller.main --help
-python3 run_mujoco_simulation.py --help
-candump -td vcan0
+python3 -m robot_controller.main \
+  --config config/app_config/robot_controller.yaml \
 ```
+
+
+CAN setup:
+
+```bash
+sudo modprobe vcan
+sudo ip link add dev vcan0 type vcan
+sudo ip link set up vcan0
+
+sudo ip link set can0 down
+sudo ip link set can0 type can bitrate 1000000
+sudo ip link set can0 up
+
+sudo ip link set can1 down
+sudo ip link set can1 type can bitrate 1000000
+sudo ip link set can1 up
+
+sudo ip link set can2 down
+sudo ip link set can2 type can bitrate 1000000
+sudo ip link set can2 up
+
+sudo ip link set can3 down
+sudo ip link set can3 type can bitrate 1000000
+sudo ip link set can3 up
+
+sudo ip link set can4 down
+sudo ip link set can4 type can bitrate 1000000
+sudo ip link set can4 up
+```
+
